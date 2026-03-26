@@ -14,3 +14,134 @@ import * as zod from "zod";
 export const HealthCheckResponse = zod.object({
   status: zod.string(),
 });
+
+/**
+ * @summary Generate an AI styled pet image
+ */
+export const GenerateOpenaiImageBody = zod.object({
+  prompt: zod.string(),
+  size: zod.enum(["1024x1024", "512x512", "256x256"]).optional(),
+});
+
+export const GenerateOpenaiImageResponse = zod.object({
+  b64_json: zod.string(),
+});
+
+/**
+ * @summary List all community posts
+ */
+export const ListPostsResponseItem = zod.object({
+  id: zod.string(),
+  userId: zod.string(),
+  userName: zod.string(),
+  userAvatar: zod.string().optional(),
+  petName: zod.string(),
+  petType: zod.string(),
+  imageData: zod.string(),
+  style: zod.string(),
+  caption: zod.string(),
+  likes: zod.number(),
+  likedByMe: zod.boolean(),
+  createdAt: zod.date(),
+});
+export const ListPostsResponse = zod.array(ListPostsResponseItem);
+
+/**
+ * @summary Create a new community post
+ */
+export const CreatePostBody = zod.object({
+  petName: zod.string(),
+  petType: zod.string(),
+  imageData: zod.string(),
+  style: zod.string(),
+  caption: zod.string(),
+  userName: zod.string(),
+  userAvatar: zod.string().optional(),
+});
+
+/**
+ * @summary Like or unlike a post
+ */
+export const LikePostParams = zod.object({
+  id: zod.coerce.string(),
+});
+
+export const LikePostResponse = zod.object({
+  id: zod.string(),
+  userId: zod.string(),
+  userName: zod.string(),
+  userAvatar: zod.string().optional(),
+  petName: zod.string(),
+  petType: zod.string(),
+  imageData: zod.string(),
+  style: zod.string(),
+  caption: zod.string(),
+  likes: zod.number(),
+  likedByMe: zod.boolean(),
+  createdAt: zod.date(),
+});
+
+/**
+ * @summary List user's pets
+ */
+export const ListPetsResponseItem = zod.object({
+  id: zod.string(),
+  name: zod.string(),
+  type: zod.string(),
+  breed: zod.string().optional(),
+  imageData: zod.string().optional(),
+  createdAt: zod.date(),
+});
+export const ListPetsResponse = zod.array(ListPetsResponseItem);
+
+/**
+ * @summary Add a new pet
+ */
+export const CreatePetBody = zod.object({
+  name: zod.string(),
+  type: zod.string(),
+  breed: zod.string().optional(),
+  imageData: zod.string().optional(),
+});
+
+/**
+ * @summary Delete a pet
+ */
+export const DeletePetParams = zod.object({
+  id: zod.coerce.string(),
+});
+
+/**
+ * @summary Get user profile
+ */
+export const GetProfileResponse = zod.object({
+  id: zod.string(),
+  username: zod.string(),
+  displayName: zod.string(),
+  bio: zod.string().optional(),
+  avatarData: zod.string().optional(),
+  postsCount: zod.number(),
+  followersCount: zod.number(),
+  followingCount: zod.number(),
+});
+
+/**
+ * @summary Update user profile
+ */
+export const UpdateProfileBody = zod.object({
+  username: zod.string().optional(),
+  displayName: zod.string().optional(),
+  bio: zod.string().optional(),
+  avatarData: zod.string().optional(),
+});
+
+export const UpdateProfileResponse = zod.object({
+  id: zod.string(),
+  username: zod.string(),
+  displayName: zod.string(),
+  bio: zod.string().optional(),
+  avatarData: zod.string().optional(),
+  postsCount: zod.number(),
+  followersCount: zod.number(),
+  followingCount: zod.number(),
+});

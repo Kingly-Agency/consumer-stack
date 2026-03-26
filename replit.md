@@ -91,6 +91,20 @@ Generated Zod schemas from the OpenAPI spec (e.g. `HealthCheckResponse`). Used b
 
 Generated React Query hooks and fetch client from the OpenAPI spec (e.g. `useHealthCheck`, `healthCheck`).
 
+### `artifacts/petpix` (`@workspace/petpix`)
+
+Expo React Native mobile app — "PetPix - AI Pet Art". Users upload pet photos, apply AI art styles to generate portraits using OpenAI's image generation, share to a community feed, manage pets, and maintain a user profile.
+
+- **Routing**: Expo Router file-based routing, 5-tab layout (Home, Community, Create, My Pets, Profile)
+- **State**: React Query for server state (`@workspace/api-client-react` hooks)
+- **Theme**: Light/warm — primary orange `#FF6B35`, cream backgrounds
+- **Auth**: Single default user "user-001" (no authentication)
+- **AI**: Uses Replit AI Integrations OpenAI proxy (no user API key needed)
+- **Key screens**: `app/(tabs)/index.tsx` (home feed), `app/(tabs)/community.tsx` (community with filters), `app/(tabs)/create.tsx` (4-step AI creation flow), `app/(tabs)/pets.tsx` (pet management), `app/(tabs)/profile.tsx` (Instagram-style profile grid), `app/edit-profile.tsx` (profile editing modal)
+- **Key components**: `PostCard`, `StyleCard` (8 art styles: cartoon, watercolor, oil painting, pop art, sketch, pixel, anime, 3D render)
+- **Constants**: `constants/colors.ts` — design token colors
+- **Context**: `context/AppContext.tsx` — provides userId and userName
+
 ### `scripts` (`@workspace/scripts`)
 
 Utility scripts package. Each script is a `.ts` file in `src/` with a corresponding npm script in `package.json`. Run scripts via `pnpm --filter @workspace/scripts run <script>`. Scripts can import any workspace package (e.g., `@workspace/db`) by adding it as a dependency in `scripts/package.json`.

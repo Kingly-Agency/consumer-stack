@@ -6,4 +6,13 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from "./createPetBody";
+export * from "./createPostBody";
+export * from "./generateOpenaiImageBody";
+export * from "./generateOpenaiImageBodySize";
+export * from "./generateOpenaiImageResponse";
 export * from "./healthStatus";
+export * from "./pet";
+export * from "./post";
+export * from "./profile";
+export * from "./updateProfileBody";

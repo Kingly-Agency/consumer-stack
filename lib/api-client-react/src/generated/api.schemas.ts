@@ -8,3 +8,80 @@
 export interface HealthStatus {
   status: string;
 }
+
+export type GenerateOpenaiImageBodySize =
+  (typeof GenerateOpenaiImageBodySize)[keyof typeof GenerateOpenaiImageBodySize];
+
+export const GenerateOpenaiImageBodySize = {
+  "1024x1024": "1024x1024",
+  "512x512": "512x512",
+  "256x256": "256x256",
+} as const;
+
+export interface GenerateOpenaiImageBody {
+  prompt: string;
+  size?: GenerateOpenaiImageBodySize;
+}
+
+export interface GenerateOpenaiImageResponse {
+  b64_json: string;
+}
+
+export interface Post {
+  id: string;
+  userId: string;
+  userName: string;
+  userAvatar?: string;
+  petName: string;
+  petType: string;
+  imageData: string;
+  style: string;
+  caption: string;
+  likes: number;
+  likedByMe: boolean;
+  createdAt: string;
+}
+
+export interface CreatePostBody {
+  petName: string;
+  petType: string;
+  imageData: string;
+  style: string;
+  caption: string;
+  userName: string;
+  userAvatar?: string;
+}
+
+export interface Pet {
+  id: string;
+  name: string;
+  type: string;
+  breed?: string;
+  imageData?: string;
+  createdAt: string;
+}
+
+export interface CreatePetBody {
+  name: string;
+  type: string;
+  breed?: string;
+  imageData?: string;
+}
+
+export interface Profile {
+  id: string;
+  username: string;
+  displayName: string;
+  bio?: string;
+  avatarData?: string;
+  postsCount: number;
+  followersCount: number;
+  followingCount: number;
+}
+
+export interface UpdateProfileBody {
+  username?: string;
+  displayName?: string;
+  bio?: string;
+  avatarData?: string;
+}
