@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import {
   View,
   Text,
@@ -13,6 +13,8 @@ import Animated, {
   useAnimatedStyle,
   withSpring,
   withSequence,
+  withTiming,
+  withDelay,
 } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
 import Colors from "@/constants/colors";
@@ -67,11 +69,21 @@ export function PostCard({
   onPress,
 }: PostCardProps) {
   const heartScale = useSharedValue(1);
+  const heartFloatY = useSharedValue(0);
+  const heartFloatOpacity = useSharedValue(0);
+  const heartFloatScale = useSharedValue(0.3);
   const [localLiked, setLocalLiked] = useState(likedByMe);
   const [localLikes, setLocalLikes] = useState(likes);
+  const lastTapRef = useRef<number>(0);
+  const tapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const heartStyle = useAnimatedStyle(() => ({
     transform: [{ scale: heartScale.value }],
+  }));
+
+  const floatHeartStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: heartFloatY.value }, { scale: heartFloatScale.value }],
+    opacity: heartFloatOpacity.value,
   }));
 
   const handleLike = () => {
@@ -83,6 +95,39 @@ export function PostCard({
     setLocalLiked(!localLiked);
     setLocalLikes((prev) => (localLiked ? prev - 1 : prev + 1));
     onLike(id);
+  };
+
+  const triggerFloatHeart = () => {
+    heartFloatY.value = 0;
+    heartFloatScale.value = 0.3;
+    heartFloatOpacity.value = 1;
+    heartFloatY.value = withTiming(-80, { duration: 900 });
+    heartFloatScale.value = withSpring(1.2, { damping: 6 });
+    heartFloatOpacity.value = withSequence(
+      withTiming(1, { duration: 100 }),
+      withDelay(500, withTiming(0, { duration: 400 }))
+    );
+  };
+
+  const handleImagePress = () => {
+    const now = Date.now();
+    if (now - lastTapRef.current < 300) {
+      if (tapTimerRef.current) {
+        clearTimeout(tapTimerRef.current);
+        tapTimerRef.current = null;
+      }
+      if (!localLiked) {
+        handleLike();
+      }
+      triggerFloatHeart();
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    } else {
+      tapTimerRef.current = setTimeout(() => {
+        onPress?.();
+        tapTimerRef.current = null;
+      }, 260);
+    }
+    lastTapRef.current = now;
   };
 
   const formatTime = (dateStr: string) => {
@@ -135,8 +180,8 @@ export function PostCard({
         </View>
       </Pressable>
 
-      {/* Image — tappable separately */}
-      <Pressable onPress={onPress}>
+      {/* Image — single tap navigates, double tap likes */}
+      <Pressable onPress={handleImagePress}>
         <View style={styles.imageContainer}>
           <Image
             source={{ uri: `data:image/png;base64,${imageData}` }}
@@ -150,6 +195,8 @@ export function PostCard({
             <Text style={styles.styleBadgeEmoji}>{styleEmoji}</Text>
             <Text style={styles.styleText}>{artStyle}</Text>
           </View>
+          {/* Floating heart on double-tap */}
+          <Animated.Text style={[styles.floatHeart, floatHeartStyle]}>❤️</Animated.Text>
         </View>
       </Pressable>
 
@@ -371,5 +418,12 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_400Regular",
     fontSize: 14,
     color: Colors.text,
+  },
+  floatHeart: {
+    position: "absolute",
+    fontSize: 52,
+    alignSelf: "center",
+    bottom: "35%",
+    pointerEvents: "none",
   },
 });

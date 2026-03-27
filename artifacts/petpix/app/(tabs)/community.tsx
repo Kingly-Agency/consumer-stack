@@ -274,8 +274,23 @@ export default function CommunityScreen() {
       )}
 
       {isLoading ? (
-        <View style={styles.centered}>
-          <ActivityIndicator size="large" color={Colors.primary} />
+        <View style={styles.skeletonList}>
+          {[0, 1, 2].map((i) => (
+            <View key={i} style={styles.skeletonCard}>
+              <View style={styles.skeletonHeader}>
+                <View style={styles.skeletonAvatar} />
+                <View style={styles.skeletonHeaderText}>
+                  <View style={[styles.skeletonLine, { width: 120 }]} />
+                  <View style={[styles.skeletonLine, { width: 80, marginTop: 6, opacity: 0.5 }]} />
+                </View>
+              </View>
+              <View style={styles.skeletonImage} />
+              <View style={styles.skeletonFooter}>
+                <View style={[styles.skeletonLine, { width: 60 }]} />
+                <View style={[styles.skeletonLine, { width: 180, marginTop: 8 }]} />
+              </View>
+            </View>
+          ))}
         </View>
       ) : isError ? (
         <View style={styles.centered}>
@@ -429,5 +444,45 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_500Medium",
     fontSize: 16,
     color: Colors.textSecondary,
+  },
+  skeletonList: {
+    flex: 1,
+    gap: 0,
+  },
+  skeletonCard: {
+    backgroundColor: Colors.surface,
+    borderBottomWidth: 0.5,
+    borderBottomColor: Colors.borderLight,
+    marginBottom: 10,
+  },
+  skeletonHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    gap: 12,
+  },
+  skeletonAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: Colors.surfaceSecondary,
+  },
+  skeletonHeaderText: {
+    flex: 1,
+  },
+  skeletonImage: {
+    width: "100%",
+    aspectRatio: 1,
+    backgroundColor: Colors.surfaceSecondary,
+  },
+  skeletonFooter: {
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  skeletonLine: {
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: Colors.surfaceSecondary,
   },
 });

@@ -9,6 +9,7 @@ import {
   Platform,
   Pressable,
   ScrollView,
+  Image,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -24,6 +25,135 @@ const HOW_IT_WORKS = [
   { step: "2", icon: "zap", label: "Style", desc: "Pick an AI art style" },
   { step: "3", icon: "share-2", label: "Share", desc: "Post to the community" },
 ];
+
+const STYLE_EMOJI: Record<string, string> = {
+  cartoon: "🎨", watercolor: "💧", "oil paint": "🖼️", "oil painting": "🖼️",
+  "pop art": "⚡", sketch: "✏️", "pixel art": "👾", anime: "⭐", "3d render": "📦",
+};
+
+function TopPicksStrip({ posts, onPress }: { posts: { id: string; imageData: string; petName: string; style: string; likes: number }[]; onPress: (id: string) => void }) {
+  const top3 = [...posts].sort((a, b) => b.likes - a.likes).slice(0, 3);
+  if (top3.length === 0) return null;
+  return (
+    <View style={topStyles.section}>
+      <View style={topStyles.sectionHeader}>
+        <Text style={topStyles.sectionTitle}>⭐ Top Picks</Text>
+        <Text style={topStyles.sectionSub}>Most loved this week</Text>
+      </View>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={topStyles.row}>
+        {top3.map((post, i) => (
+          <Pressable key={post.id} onPress={() => onPress(post.id)} style={topStyles.card}>
+            <View style={topStyles.rankBadge}>
+              <Text style={topStyles.rankText}>{i + 1}</Text>
+            </View>
+            <Image
+              source={{ uri: `data:image/png;base64,${post.imageData}` }}
+              style={topStyles.cardImage}
+              resizeMode="cover"
+            />
+            <View style={topStyles.cardInfo}>
+              <Text style={topStyles.cardPetName} numberOfLines={1}>{post.petName}</Text>
+              <View style={topStyles.cardBottom}>
+                <Text style={topStyles.cardStyleEmoji}>{STYLE_EMOJI[post.style.toLowerCase()] ?? "✨"}</Text>
+                <Text style={topStyles.cardLikes}>♥ {post.likes}</Text>
+              </View>
+            </View>
+          </Pressable>
+        ))}
+      </ScrollView>
+    </View>
+  );
+}
+
+const topStyles = StyleSheet.create({
+  section: {
+    paddingTop: 16,
+    paddingBottom: 8,
+    backgroundColor: Colors.surface,
+    borderBottomWidth: 0.5,
+    borderBottomColor: Colors.borderLight,
+  },
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "baseline",
+    gap: 8,
+    paddingHorizontal: 20,
+    marginBottom: 12,
+  },
+  sectionTitle: {
+    fontFamily: "Inter_700Bold",
+    fontSize: 16,
+    color: Colors.text,
+    letterSpacing: -0.2,
+  },
+  sectionSub: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 12,
+    color: Colors.textTertiary,
+  },
+  row: {
+    paddingHorizontal: 20,
+    gap: 12,
+    paddingBottom: 14,
+  },
+  card: {
+    width: 140,
+    borderRadius: 18,
+    overflow: "hidden",
+    backgroundColor: Colors.surfaceSecondary,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+    position: "relative",
+  },
+  rankBadge: {
+    position: "absolute",
+    top: 8,
+    left: 8,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: Colors.primary,
+    zIndex: 2,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  rankText: {
+    fontFamily: "Inter_700Bold",
+    fontSize: 11,
+    color: "#fff",
+  },
+  cardImage: {
+    width: 140,
+    height: 140,
+    backgroundColor: Colors.surfaceSecondary,
+  },
+  cardInfo: {
+    padding: 10,
+    gap: 4,
+    backgroundColor: Colors.surface,
+  },
+  cardPetName: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 13,
+    color: Colors.text,
+  },
+  cardBottom: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  cardStyleEmoji: {
+    fontSize: 14,
+  },
+  cardLikes: {
+    fontFamily: "Inter_500Medium",
+    fontSize: 12,
+    color: Colors.like,
+  },
+});
 
 function HomeEmptyState() {
   return (
@@ -371,6 +501,14 @@ export default function HomeScreen() {
               onPress={() => router.push(`/post/${item.id}`)}
             />
           )}
+          ListHeaderComponent={
+            posts && posts.length > 0 ? (
+              <TopPicksStrip
+                posts={posts}
+                onPress={(id) => router.push(`/post/${id}`)}
+              />
+            ) : null
+          }
           refreshControl={
             <RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={Colors.primary} />
           }

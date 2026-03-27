@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   View,
   Text,
@@ -11,7 +11,9 @@ import {
   ActivityIndicator,
   Platform,
   Dimensions,
+  Animated,
 } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
 import * as ImagePicker from "expo-image-picker";
 import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -57,6 +59,26 @@ export default function CreateScreen() {
   const [selectedPetId, setSelectedPetId] = useState<string | null>(null);
 
   const stepIndex = STEP_LIST.indexOf(step);
+
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const progressAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (isGenerating) {
+      progressAnim.setValue(0);
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseAnim, { toValue: 1.18, duration: 900, useNativeDriver: true }),
+          Animated.timing(pulseAnim, { toValue: 1, duration: 900, useNativeDriver: true }),
+        ])
+      ).start();
+      Animated.timing(progressAnim, { toValue: 0.88, duration: 22000, useNativeDriver: false }).start();
+    } else {
+      pulseAnim.stopAnimation();
+      pulseAnim.setValue(1);
+      progressAnim.setValue(0);
+    }
+  }, [isGenerating]);
 
   const { data: savedPets } = useQuery({
     queryKey: ["pets"],
@@ -179,7 +201,10 @@ export default function CreateScreen() {
 
   const canGenerate = petName.trim() && (!!selectedStyle || customPrompt.trim());
 
+  const petEmoji = PET_TYPE_EMOJIS[petType.toLowerCase()] ?? "🐾";
+
   return (
+    <View style={{ flex: 1, backgroundColor: Colors.background }}>
     <KeyboardAwareScrollView
       style={styles.container}
       contentContainerStyle={[
@@ -419,13 +444,16 @@ export default function CreateScreen() {
       {/* STEP 3: Preview */}
       {step === "preview" && generatedImage && (
         <View style={styles.section}>
-          <View style={styles.sectionHead}>
-            <Text style={styles.sectionTitle}>Your AI Portrait ✨</Text>
-            <Text style={styles.sectionSub}>
-              {selectedStyle?.name ?? "Custom"} style · {petName}
-            </Text>
+          {/* Celebration header */}
+          <View style={styles.celebrationBanner}>
+            <Text style={styles.celebrationEmoji}>🎉</Text>
+            <View>
+              <Text style={styles.celebrationTitle}>Your portrait is ready!</Text>
+              <Text style={styles.celebrationSub}>{petName} looks amazing in {selectedStyle?.name ?? "custom"} style</Text>
+            </View>
           </View>
 
+          {/* Generated image */}
           <View style={styles.generatedImageContainer}>
             <Image
               source={{ uri: `data:image/png;base64,${generatedImage}` }}
@@ -440,13 +468,36 @@ export default function CreateScreen() {
             )}
           </View>
 
+          {/* Before / After comparison strip */}
+          {originalImage && (
+            <View style={styles.compareRow}>
+              <View style={styles.compareItem}>
+                <Image
+                  source={{ uri: `data:image/jpeg;base64,${originalImage}` }}
+                  style={styles.compareThumb}
+                />
+                <Text style={styles.compareLabel}>Original</Text>
+              </View>
+              <View style={styles.compareArrow}>
+                <Feather name="arrow-right" size={20} color={Colors.primary} />
+              </View>
+              <View style={styles.compareItem}>
+                <Image
+                  source={{ uri: `data:image/png;base64,${generatedImage}` }}
+                  style={styles.compareThumb}
+                />
+                <Text style={[styles.compareLabel, { color: Colors.primary }]}>AI Art</Text>
+              </View>
+            </View>
+          )}
+
           <View style={styles.previewActions}>
             <Pressable onPress={() => setStep("style")} style={styles.outlineBtn}>
               <Feather name="refresh-cw" size={15} color={Colors.primary} />
               <Text style={styles.outlineBtnText}>Try again</Text>
             </Pressable>
             <Pressable onPress={() => setStep("share")} style={[styles.primaryBtn, styles.previewShareBtn]}>
-              <Text style={styles.primaryBtnText}>Share to community</Text>
+              <Text style={styles.primaryBtnText}>Share it</Text>
               <Feather name="arrow-right" size={16} color="#fff" />
             </Pressable>
           </View>
@@ -461,19 +512,38 @@ export default function CreateScreen() {
             <Text style={styles.sectionSub}>Add a caption and post to the community</Text>
           </View>
 
-          <View style={styles.sharePreviewRow}>
-            <Image
-              source={{ uri: `data:image/png;base64,${generatedImage}` }}
-              style={styles.shareThumb}
-              resizeMode="cover"
-            />
-            <View style={styles.sharePreviewInfo}>
-              <Text style={styles.sharePreviewName}>{petName}</Text>
-              <View style={styles.sharePreviewBadge}>
-                {selectedStyle && <Text style={styles.sharePreviewBadgeEmoji}>{selectedStyle.emoji}</Text>}
-                <Text style={styles.sharePreviewStyle}>{selectedStyle?.name ?? "Custom"} style</Text>
+          {/* Post preview card */}
+          <View style={styles.postPreviewCard}>
+            <Text style={styles.postPreviewLabel}>Preview</Text>
+            <View style={styles.postPreviewHeader}>
+              <View style={styles.postPreviewAvatar}>
+                <Text style={styles.postPreviewAvatarLetter}>
+                  {(displayName || userName || "P").charAt(0).toUpperCase()}
+                </Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.postPreviewUser}>{displayName || userName}</Text>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
+                  <View style={styles.petPreviewTag}>
+                    <Text style={styles.petPreviewTagText}>{petName}</Text>
+                  </View>
+                  <Text style={styles.petPreviewType}>· {petType}</Text>
+                </View>
               </View>
             </View>
+            <Image
+              source={{ uri: `data:image/png;base64,${generatedImage}` }}
+              style={styles.postPreviewImage}
+              resizeMode="cover"
+            />
+            {caption ? (
+              <Text style={styles.postPreviewCaption}>
+                <Text style={styles.postPreviewCaptionUser}>{displayName || userName} </Text>
+                <Text>{caption}</Text>
+              </Text>
+            ) : (
+              <Text style={styles.postPreviewCaptionPlaceholder}>Your caption will appear here…</Text>
+            )}
           </View>
 
           <TextInput
@@ -508,6 +578,40 @@ export default function CreateScreen() {
         </View>
       )}
     </KeyboardAwareScrollView>
+
+    {/* AI Generation loading overlay */}
+    {isGenerating && (
+      <View style={styles.generatingOverlay}>
+        <LinearGradient
+          colors={["rgba(255,240,235,0.97)", "rgba(255,255,255,0.99)"]}
+          style={StyleSheet.absoluteFill}
+        />
+        <View style={styles.generatingContent}>
+          <Animated.Text style={[styles.generatingEmoji, { transform: [{ scale: pulseAnim }] }]}>
+            {petEmoji}
+          </Animated.Text>
+          <Text style={styles.generatingTitle}>Creating your masterpiece</Text>
+          <Text style={styles.generatingSubtitle}>
+            AI is painting {petName || "your pet"} in {selectedStyle?.name ?? "custom"} style
+          </Text>
+          <View style={styles.generatingProgressTrack}>
+            <Animated.View
+              style={[
+                styles.generatingProgressBar,
+                {
+                  width: progressAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: ["0%", "100%"],
+                  }),
+                },
+              ]}
+            />
+          </View>
+          <Text style={styles.generatingHint}>✨ AI magic takes 10–30 seconds</Text>
+        </View>
+      </View>
+    )}
+    </View>
   );
 }
 
@@ -999,5 +1103,198 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_400Regular",
     fontSize: 14,
     color: Colors.textTertiary,
+  },
+  generatingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 100,
+  },
+  generatingContent: {
+    alignItems: "center",
+    gap: 14,
+    paddingHorizontal: 40,
+  },
+  generatingEmoji: {
+    fontSize: 72,
+    marginBottom: 4,
+  },
+  generatingTitle: {
+    fontFamily: "Inter_700Bold",
+    fontSize: 22,
+    color: Colors.text,
+    letterSpacing: -0.4,
+    textAlign: "center",
+  },
+  generatingSubtitle: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 14,
+    color: Colors.textSecondary,
+    textAlign: "center",
+    lineHeight: 21,
+  },
+  generatingProgressTrack: {
+    width: 220,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: Colors.border,
+    overflow: "hidden",
+    marginTop: 4,
+  },
+  generatingProgressBar: {
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: Colors.primary,
+  },
+  generatingHint: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 12,
+    color: Colors.textTertiary,
+  },
+  celebrationBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+    backgroundColor: Colors.primaryLighter,
+    borderRadius: 18,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: "rgba(255,107,53,0.15)",
+  },
+  celebrationEmoji: {
+    fontSize: 36,
+  },
+  celebrationTitle: {
+    fontFamily: "Inter_700Bold",
+    fontSize: 18,
+    color: Colors.text,
+    letterSpacing: -0.3,
+  },
+  celebrationSub: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 13,
+    color: Colors.textSecondary,
+    marginTop: 2,
+  },
+  compareRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 12,
+    backgroundColor: Colors.surface,
+    borderRadius: 18,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  compareItem: {
+    alignItems: "center",
+    gap: 6,
+  },
+  compareThumb: {
+    width: 90,
+    height: 90,
+    borderRadius: 14,
+    backgroundColor: Colors.surfaceSecondary,
+  },
+  compareLabel: {
+    fontFamily: "Inter_500Medium",
+    fontSize: 12,
+    color: Colors.textSecondary,
+  },
+  compareArrow: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: Colors.primaryLighter,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  postPreviewCard: {
+    backgroundColor: Colors.surface,
+    borderRadius: 20,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: Colors.border,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    elevation: 3,
+  },
+  postPreviewLabel: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 10,
+    color: Colors.textTertiary,
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
+    paddingHorizontal: 14,
+    paddingTop: 12,
+    paddingBottom: 2,
+  },
+  postPreviewHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  postPreviewAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: Colors.primaryLight,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  postPreviewAvatarLetter: {
+    fontFamily: "Inter_700Bold",
+    fontSize: 14,
+    color: "#fff",
+  },
+  postPreviewUser: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 13,
+    color: Colors.text,
+  },
+  petPreviewTag: {
+    backgroundColor: Colors.primaryLighter,
+    borderRadius: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+  },
+  petPreviewTagText: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 10,
+    color: Colors.primary,
+  },
+  petPreviewType: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 11,
+    color: Colors.textTertiary,
+  },
+  postPreviewImage: {
+    width: "100%",
+    height: 180,
+    backgroundColor: Colors.surfaceSecondary,
+  },
+  postPreviewCaption: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 13,
+    color: Colors.text,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    lineHeight: 19,
+  },
+  postPreviewCaptionUser: {
+    fontFamily: "Inter_700Bold",
+  },
+  postPreviewCaptionPlaceholder: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 13,
+    color: Colors.textTertiary,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    fontStyle: "italic",
   },
 });
