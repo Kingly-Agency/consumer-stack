@@ -17,31 +17,21 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { listPets, createPet, deletePet } from "@workspace/api-client-react";
 import * as ImagePicker from "expo-image-picker";
-import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
+import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import Colors from "@/constants/colors";
 
 const PET_TYPES = ["Dog", "Cat", "Bird", "Rabbit", "Hamster", "Fish", "Other"];
 
-const PET_TYPE_COLORS: Record<string, { color: string; bg: string }> = {
-  dog: { color: "#FF6B35", bg: "#FFF0EB" },
-  cat: { color: "#9C27B0", bg: "#F3E5F5" },
-  bird: { color: "#2196F3", bg: "#E3F2FD" },
-  rabbit: { color: "#4CAF50", bg: "#E8F5E9" },
-  hamster: { color: "#FF9800", bg: "#FFF3E0" },
-  fish: { color: "#00BCD4", bg: "#E0F7FA" },
-  other: { color: "#E91E63", bg: "#FCE4EC" },
-};
-
-const PET_EMOJIS: Record<string, string> = {
-  dog: "🐶",
-  cat: "🐱",
-  bird: "🐦",
-  rabbit: "🐰",
-  hamster: "🐹",
-  fish: "🐠",
-  other: "🐾",
+const PET_TYPE_STYLES: Record<string, { color: string; bg: string; emoji: string }> = {
+  dog: { color: "#FF6B35", bg: "#FFF0EB", emoji: "🐶" },
+  cat: { color: "#9C27B0", bg: "#F3E5F5", emoji: "🐱" },
+  bird: { color: "#2196F3", bg: "#E3F2FD", emoji: "🐦" },
+  rabbit: { color: "#4CAF50", bg: "#E8F5E9", emoji: "🐰" },
+  hamster: { color: "#FF9800", bg: "#FFF3E0", emoji: "🐹" },
+  fish: { color: "#00BCD4", bg: "#E0F7FA", emoji: "🐠" },
+  other: { color: "#E91E63", bg: "#FCE4EC", emoji: "🐾" },
 };
 
 export default function PetsScreen() {
@@ -54,7 +44,7 @@ export default function PetsScreen() {
   const [breed, setBreed] = useState("");
   const [petImage, setPetImage] = useState<string | null>(null);
 
-  const { data: pets, isLoading, refetch } = useQuery({
+  const { data: pets, isLoading } = useQuery({
     queryKey: ["pets"],
     queryFn: () => listPets(),
   });
@@ -101,7 +91,7 @@ export default function PetsScreen() {
   };
 
   const getTypeStyle = (t: string) =>
-    PET_TYPE_COLORS[t.toLowerCase()] ?? PET_TYPE_COLORS.other;
+    PET_TYPE_STYLES[t.toLowerCase()] ?? PET_TYPE_STYLES.other;
 
   return (
     <View style={styles.container}>
@@ -109,7 +99,7 @@ export default function PetsScreen() {
         <View>
           <Text style={styles.headerTitle}>My Pets</Text>
           {pets && pets.length > 0 && (
-            <Text style={styles.headerSub}>{pets.length} pet{pets.length !== 1 ? "s" : ""}</Text>
+            <Text style={styles.headerSub}>{pets.length} pet{pets.length !== 1 ? "s" : ""} · Long-press to remove</Text>
           )}
         </View>
         <Pressable onPress={() => setShowModal(true)} style={styles.addBtn} testID="add-pet-btn">
@@ -127,9 +117,9 @@ export default function PetsScreen() {
           keyExtractor={(item) => item.id}
           numColumns={2}
           columnWrapperStyle={styles.row}
+          contentContainerStyle={pets && pets.length === 0 ? styles.emptyContainer : styles.listContent}
           renderItem={({ item }) => {
-            const tc = getTypeStyle(item.type);
-            const emoji = PET_EMOJIS[item.type.toLowerCase()] ?? "🐾";
+            const ts = getTypeStyle(item.type);
             return (
               <Pressable
                 style={styles.petCard}
@@ -142,40 +132,39 @@ export default function PetsScreen() {
                     style={styles.petImage}
                   />
                 ) : (
-                  <View style={[styles.petImagePlaceholder, { backgroundColor: tc.bg }]}>
-                    <Text style={styles.petEmoji}>{emoji}</Text>
+                  <View style={[styles.petImagePlaceholder, { backgroundColor: ts.bg }]}>
+                    <Text style={styles.petEmoji}>{ts.emoji}</Text>
                   </View>
                 )}
                 <View style={styles.petInfo}>
                   <Text style={styles.petName} numberOfLines={1}>{item.name}</Text>
-                  <View style={[styles.typePill, { backgroundColor: tc.bg }]}>
-                    <Text style={[styles.typeLabel, { color: tc.color }]}>{item.type}</Text>
+                  <View style={[styles.typePill, { backgroundColor: ts.bg }]}>
+                    <Text style={styles.typePillEmoji}>{ts.emoji}</Text>
+                    <Text style={[styles.typeLabel, { color: ts.color }]}>{item.type}</Text>
                   </View>
                   {item.breed ? (
                     <Text style={styles.petBreed} numberOfLines={1}>{item.breed}</Text>
                   ) : null}
-                </View>
-                <View style={styles.longPressHint}>
-                  <Feather name="more-vertical" size={14} color={Colors.textTertiary} />
                 </View>
               </Pressable>
             );
           }}
           ListEmptyComponent={
             <View style={styles.empty}>
-              <Text style={styles.emptyEmoji}>🐾</Text>
-              <Text style={styles.emptyTitle}>No pets yet</Text>
+              <View style={styles.emptyAnimalRow}>
+                <Text style={styles.emptyAnimalEmoji}>🐶</Text>
+                <Text style={[styles.emptyAnimalEmoji, styles.centerEmoji]}>🐱</Text>
+                <Text style={styles.emptyAnimalEmoji}>🐰</Text>
+              </View>
+              <Text style={styles.emptyTitle}>No pets added yet</Text>
               <Text style={styles.emptyText}>
-                Add your furry, feathery, or scaly friends to start creating AI portraits!
+                Add your furry, feathery, or scaly friends and start creating stunning AI portraits of them!
               </Text>
               <Pressable onPress={() => setShowModal(true)} style={styles.emptyBtn}>
                 <Feather name="plus" size={16} color="#fff" />
                 <Text style={styles.emptyBtnText}>Add your first pet</Text>
               </Pressable>
             </View>
-          }
-          contentContainerStyle={
-            pets && pets.length === 0 ? styles.emptyContainer : styles.listContent
           }
           showsVerticalScrollIndicator={false}
         />
@@ -201,17 +190,24 @@ export default function PetsScreen() {
             keyboardShouldPersistTaps="handled"
             contentContainerStyle={styles.modalContent}
           >
+            {/* Photo picker */}
             <Pressable onPress={pickPetImage} style={styles.photoUpload}>
               {petImage ? (
                 <Image source={{ uri: `data:image/jpeg;base64,${petImage}` }} style={styles.photoPreview} />
               ) : (
                 <View style={styles.photoPlaceholder}>
-                  <Feather name="camera" size={28} color={Colors.primary} />
-                  <Text style={styles.photoPlaceholderText}>Add photo</Text>
+                  <Text style={styles.photoPlaceholderEmoji}>
+                    {PET_TYPE_STYLES[type.toLowerCase()]?.emoji ?? "🐾"}
+                  </Text>
+                  <View style={styles.photoAddBadge}>
+                    <Feather name="camera" size={12} color="#fff" />
+                  </View>
                 </View>
               )}
             </Pressable>
+            <Text style={styles.photoHint}>Tap to add a photo</Text>
 
+            {/* Name */}
             <TextInput
               style={styles.input}
               placeholder="Pet name *"
@@ -221,25 +217,33 @@ export default function PetsScreen() {
               testID="pet-name-modal-input"
             />
 
-            <Text style={styles.fieldLabel}>Type</Text>
+            {/* Type */}
+            <Text style={styles.fieldLabel}>What kind of pet?</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              <View style={styles.chipRow}>
+              <View style={styles.typeRow}>
                 {PET_TYPES.map((t) => {
-                  const emoji = PET_EMOJIS[t.toLowerCase()] ?? "🐾";
+                  const ts = PET_TYPE_STYLES[t.toLowerCase()] ?? PET_TYPE_STYLES.other;
+                  const isActive = type === t;
                   return (
                     <Pressable
                       key={t}
                       onPress={() => setType(t)}
-                      style={[styles.typeChip, type === t && styles.typeChipActive]}
+                      style={[
+                        styles.typeChip,
+                        isActive && { backgroundColor: ts.bg, borderColor: ts.color },
+                      ]}
                     >
-                      <Text style={styles.typeChipEmoji}>{emoji}</Text>
-                      <Text style={[styles.typeChipText, type === t && styles.typeChipTextActive]}>{t}</Text>
+                      <Text style={styles.typeEmoji}>{ts.emoji}</Text>
+                      <Text style={[styles.typeChipText, isActive && { color: ts.color, fontFamily: "Inter_600SemiBold" }]}>
+                        {t}
+                      </Text>
                     </Pressable>
                   );
                 })}
               </View>
             </ScrollView>
 
+            {/* Breed */}
             <TextInput
               style={styles.input}
               placeholder="Breed (optional)"
@@ -298,7 +302,7 @@ const styles = StyleSheet.create({
   },
   headerSub: {
     fontFamily: "Inter_400Regular",
-    fontSize: 12,
+    fontSize: 11,
     color: Colors.textTertiary,
     marginTop: 1,
   },
@@ -317,6 +321,11 @@ const styles = StyleSheet.create({
   },
   listContent: {
     padding: 16,
+    paddingBottom: 110,
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: "center",
   },
   row: {
     gap: 12,
@@ -332,7 +341,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.06,
     shadowRadius: 8,
     elevation: 3,
-    position: "relative",
   },
   petImage: {
     width: "100%",
@@ -345,7 +353,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   petEmoji: {
-    fontSize: 48,
+    fontSize: 52,
   },
   petInfo: {
     padding: 12,
@@ -359,9 +367,15 @@ const styles = StyleSheet.create({
   },
   typePill: {
     alignSelf: "flex-start",
-    paddingHorizontal: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 9,
     paddingVertical: 3,
     borderRadius: 10,
+  },
+  typePillEmoji: {
+    fontSize: 11,
   },
   typeLabel: {
     fontFamily: "Inter_500Medium",
@@ -372,38 +386,36 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: Colors.textTertiary,
   },
-  longPressHint: {
-    position: "absolute",
-    top: 8,
-    right: 8,
-    backgroundColor: "rgba(255,255,255,0.75)",
-    borderRadius: 12,
-    padding: 4,
-  },
   empty: {
     alignItems: "center",
-    paddingHorizontal: 40,
+    paddingHorizontal: 36,
     gap: 12,
   },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: "center",
+  emptyAnimalRow: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    gap: 4,
+    marginBottom: 8,
   },
-  emptyEmoji: {
-    fontSize: 64,
-    marginBottom: 4,
+  emptyAnimalEmoji: {
+    fontSize: 40,
+  },
+  centerEmoji: {
+    fontSize: 52,
+    marginHorizontal: 4,
   },
   emptyTitle: {
     fontFamily: "Inter_700Bold",
     fontSize: 22,
     color: Colors.text,
+    textAlign: "center",
   },
   emptyText: {
     fontFamily: "Inter_400Regular",
-    fontSize: 15,
+    fontSize: 14,
     color: Colors.textSecondary,
     textAlign: "center",
-    lineHeight: 22,
+    lineHeight: 21,
   },
   emptyBtn: {
     flexDirection: "row",
@@ -462,33 +474,52 @@ const styles = StyleSheet.create({
   modalContent: {
     paddingHorizontal: 20,
     paddingBottom: 40,
-    gap: 16,
+    gap: 14,
+    alignItems: "stretch",
   },
   photoUpload: {
     alignSelf: "center",
-    marginBottom: 4,
+    position: "relative",
   },
   photoPreview: {
-    width: 110,
-    height: 110,
-    borderRadius: 55,
+    width: 100,
+    height: 100,
+    borderRadius: 50,
   },
   photoPlaceholder: {
-    width: 110,
-    height: 110,
-    borderRadius: 55,
+    width: 100,
+    height: 100,
+    borderRadius: 50,
     backgroundColor: Colors.primaryLighter,
     justifyContent: "center",
     alignItems: "center",
-    gap: 6,
     borderWidth: 2,
     borderColor: Colors.primary,
     borderStyle: "dashed",
+    position: "relative",
   },
-  photoPlaceholderText: {
-    fontFamily: "Inter_500Medium",
+  photoPlaceholderEmoji: {
+    fontSize: 40,
+  },
+  photoAddBadge: {
+    position: "absolute",
+    bottom: 0,
+    right: 0,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: Colors.primary,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 2,
+    borderColor: Colors.background,
+  },
+  photoHint: {
+    fontFamily: "Inter_400Regular",
     fontSize: 12,
-    color: Colors.primary,
+    color: Colors.textTertiary,
+    textAlign: "center",
+    marginTop: -6,
   },
   input: {
     backgroundColor: Colors.surface,
@@ -503,15 +534,14 @@ const styles = StyleSheet.create({
   },
   fieldLabel: {
     fontFamily: "Inter_600SemiBold",
-    fontSize: 12,
-    color: Colors.textTertiary,
-    textTransform: "uppercase",
-    letterSpacing: 0.8,
+    fontSize: 13,
+    color: Colors.text,
     marginBottom: -4,
   },
-  chipRow: {
+  typeRow: {
     flexDirection: "row",
     gap: 8,
+    paddingBottom: 4,
   },
   typeChip: {
     flexDirection: "row",
@@ -524,21 +554,13 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: "transparent",
   },
-  typeChipActive: {
-    backgroundColor: Colors.primaryLighter,
-    borderColor: Colors.primary,
-  },
-  typeChipEmoji: {
-    fontSize: 16,
+  typeEmoji: {
+    fontSize: 15,
   },
   typeChipText: {
     fontFamily: "Inter_500Medium",
     fontSize: 13,
     color: Colors.textSecondary,
-  },
-  typeChipTextActive: {
-    color: Colors.primary,
-    fontFamily: "Inter_600SemiBold",
   },
   saveBtn: {
     flexDirection: "row",

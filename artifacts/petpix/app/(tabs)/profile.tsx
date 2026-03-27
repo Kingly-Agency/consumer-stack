@@ -20,6 +20,8 @@ import Colors from "@/constants/colors";
 const { width } = Dimensions.get("window");
 const ITEM_SIZE = (width - 3) / 3;
 
+const COVER_HEIGHT = 130;
+
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
@@ -56,25 +58,32 @@ export default function ProfileScreen() {
         data={myPosts}
         keyExtractor={(item) => item.id}
         numColumns={3}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.listContent}
         ListHeaderComponent={
           <View>
-            {/* Cover gradient header */}
+            {/* Cover band with pattern */}
             <View style={[styles.coverBand, { paddingTop: topPadding }]}>
-              <View style={styles.coverGradientOverlay} />
+              {/* Decorative circles */}
+              <View style={[styles.coverCircle, { top: -20, right: 40, width: 120, height: 120, opacity: 0.12 }]} />
+              <View style={[styles.coverCircle, { top: 10, right: -20, width: 80, height: 80, opacity: 0.08 }]} />
+              <View style={[styles.coverCircle, { top: -10, left: 60, width: 60, height: 60, opacity: 0.1 }]} />
+              {/* Nav */}
               <View style={styles.navBar}>
-                <Text style={styles.navTitle}>Profile</Text>
+                <Text style={styles.navTitle}>My Profile</Text>
                 <Pressable
                   onPress={() => router.push("/edit-profile")}
                   style={styles.settingsBtn}
                   testID="edit-profile-btn"
                 >
-                  <Feather name="settings" size={18} color={Colors.text} />
+                  <Feather name="settings" size={17} color={Colors.primary} />
                 </Pressable>
               </View>
             </View>
 
+            {/* Profile body */}
             <View style={styles.profileBody}>
-              {/* Avatar — overlaps cover */}
+              {/* Avatar overlapping cover */}
               <View style={styles.avatarWrapper}>
                 {profile?.avatarData ? (
                   <Image
@@ -88,47 +97,60 @@ export default function ProfileScreen() {
                     </Text>
                   </View>
                 )}
-                <View style={styles.verifiedBadge}>
-                  <Feather name="star" size={10} color="#fff" />
-                </View>
+                <Pressable
+                  style={styles.editAvatarBadge}
+                  onPress={() => router.push("/edit-profile")}
+                >
+                  <Feather name="camera" size={11} color="#fff" />
+                </Pressable>
               </View>
 
-              {/* Name / bio */}
               <Text style={styles.displayName}>{profile?.displayName ?? "Pet Lover"}</Text>
               <Text style={styles.username}>@{profile?.username ?? "petlover"}</Text>
               {profile?.bio ? (
                 <Text style={styles.bio}>{profile.bio}</Text>
-              ) : null}
+              ) : (
+                <Pressable onPress={() => router.push("/edit-profile")}>
+                  <Text style={styles.addBioPrompt}>+ Add a bio</Text>
+                </Pressable>
+              )}
 
-              {/* Stats row */}
+              {/* Stats */}
               <View style={styles.statsRow}>
                 {STATS.map((stat, i) => (
                   <React.Fragment key={stat.label}>
-                    <View style={styles.statItem}>
+                    <Pressable style={styles.statItem}>
                       <Text style={styles.statValue}>{stat.value}</Text>
                       <Text style={styles.statLabel}>{stat.label}</Text>
-                    </View>
+                    </Pressable>
                     {i < STATS.length - 1 && <View style={styles.statDivider} />}
                   </React.Fragment>
                 ))}
               </View>
 
-              {/* Edit button */}
-              <Pressable
-                onPress={() => router.push("/edit-profile")}
-                style={styles.editBtn}
-                testID="edit-profile-btn-2"
-              >
-                <Feather name="edit-2" size={14} color={Colors.primary} />
-                <Text style={styles.editBtnText}>Edit Profile</Text>
-              </Pressable>
+              {/* Actions */}
+              <View style={styles.actionRow}>
+                <Pressable
+                  onPress={() => router.push("/edit-profile")}
+                  style={styles.editBtn}
+                  testID="edit-profile-btn-2"
+                >
+                  <Feather name="edit-2" size={14} color={Colors.primary} />
+                  <Text style={styles.editBtnText}>Edit Profile</Text>
+                </Pressable>
+                <Pressable style={styles.shareBtn}>
+                  <Feather name="share-2" size={14} color={Colors.textSecondary} />
+                </Pressable>
+              </View>
             </View>
 
-            {/* Grid header */}
+            {/* Grid tab */}
             <View style={styles.gridTabRow}>
               <View style={styles.gridTabActive}>
-                <Feather name="grid" size={16} color={Colors.primary} />
-                <Text style={styles.gridTabText}>Posts</Text>
+                <Feather name="grid" size={15} color={Colors.primary} />
+                <Text style={styles.gridTabText}>
+                  {myPosts.length > 0 ? `${myPosts.length} Portrait${myPosts.length !== 1 ? "s" : ""}` : "Portraits"}
+                </Text>
               </View>
             </View>
           </View>
@@ -140,7 +162,7 @@ export default function ProfileScreen() {
               style={styles.gridImage}
             />
             <View style={styles.gridOverlay}>
-              <Feather name="heart" size={12} color="#fff" />
+              <Feather name="heart" size={11} color="#fff" />
               <Text style={styles.gridLikes}>{item.likes}</Text>
             </View>
           </Pressable>
@@ -148,19 +170,18 @@ export default function ProfileScreen() {
         ListEmptyComponent={
           <View style={styles.empty}>
             <View style={styles.emptyIconBg}>
-              <Feather name="image" size={30} color={Colors.primary} />
+              <Text style={styles.emptyEmoji}>🎨</Text>
             </View>
             <Text style={styles.emptyTitle}>No portraits yet</Text>
-            <Text style={styles.emptyText}>Create your first AI pet portrait and it'll appear here.</Text>
-            <Pressable
-              onPress={() => router.push("/create")}
-              style={styles.emptyBtn}
-            >
+            <Text style={styles.emptyText}>
+              Create your first AI pet portrait and it'll appear here!
+            </Text>
+            <Pressable onPress={() => router.push("/create")} style={styles.emptyBtn}>
+              <Feather name="zap" size={15} color="#fff" />
               <Text style={styles.emptyBtnText}>Create now</Text>
             </Pressable>
           </View>
         }
-        showsVerticalScrollIndicator={false}
       />
     </View>
   );
@@ -176,15 +197,19 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
+  listContent: {
+    paddingBottom: 110,
+  },
   coverBand: {
-    height: 120,
+    height: COVER_HEIGHT,
     backgroundColor: Colors.primaryLighter,
     position: "relative",
+    overflow: "hidden",
   },
-  coverGradientOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: Colors.primaryLighter,
-    opacity: 0.6,
+  coverCircle: {
+    position: "absolute",
+    borderRadius: 999,
+    backgroundColor: Colors.primary,
   },
   navBar: {
     flexDirection: "row",
@@ -197,30 +222,33 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_700Bold",
     fontSize: 20,
     color: Colors.text,
+    letterSpacing: -0.3,
   },
   settingsBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "rgba(255,255,255,0.7)",
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: "rgba(255,255,255,0.8)",
     justifyContent: "center",
     alignItems: "center",
   },
   profileBody: {
     backgroundColor: Colors.surface,
     paddingHorizontal: 20,
-    paddingBottom: 4,
+    paddingBottom: 8,
     alignItems: "center",
+    borderBottomWidth: 0.5,
+    borderBottomColor: Colors.borderLight,
   },
   avatarWrapper: {
-    marginTop: -42,
+    marginTop: -48,
     position: "relative",
     marginBottom: 12,
   },
   avatar: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
+    width: 96,
+    height: 96,
+    borderRadius: 48,
     borderWidth: 4,
     borderColor: Colors.surface,
   },
@@ -231,20 +259,20 @@ const styles = StyleSheet.create({
   },
   avatarLetter: {
     fontFamily: "Inter_700Bold",
-    fontSize: 34,
+    fontSize: 36,
     color: Colors.textInverse,
   },
-  verifiedBadge: {
+  editAvatarBadge: {
     position: "absolute",
-    bottom: 2,
-    right: 2,
-    width: 22,
-    height: 22,
-    borderRadius: 11,
+    bottom: 4,
+    right: 0,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
     backgroundColor: Colors.primary,
     justifyContent: "center",
     alignItems: "center",
-    borderWidth: 2,
+    borderWidth: 2.5,
     borderColor: Colors.surface,
   },
   displayName: {
@@ -258,25 +286,31 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Colors.textSecondary,
     marginTop: 2,
+    marginBottom: 6,
   },
   bio: {
     fontFamily: "Inter_400Regular",
     fontSize: 14,
     color: Colors.text,
     lineHeight: 20,
-    marginTop: 8,
     textAlign: "center",
-    paddingHorizontal: 12,
+    paddingHorizontal: 16,
+    marginBottom: 6,
+  },
+  addBioPrompt: {
+    fontFamily: "Inter_500Medium",
+    fontSize: 13,
+    color: Colors.primary,
+    marginBottom: 6,
   },
   statsRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginTop: 18,
     backgroundColor: Colors.surfaceSecondary,
-    borderRadius: 18,
+    borderRadius: 20,
     paddingVertical: 14,
-    paddingHorizontal: 24,
-    gap: 0,
+    paddingHorizontal: 8,
+    marginTop: 14,
     width: "100%",
   },
   statItem: {
@@ -296,31 +330,49 @@ const styles = StyleSheet.create({
   },
   statDivider: {
     width: 1,
-    height: 32,
+    height: 30,
     backgroundColor: Colors.border,
   },
-  editBtn: {
+  actionRow: {
     flexDirection: "row",
     alignItems: "center",
+    gap: 10,
+    marginTop: 14,
+    marginBottom: 8,
+    width: "100%",
+  },
+  editBtn: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     gap: 6,
     borderWidth: 1.5,
     borderColor: Colors.primary,
     borderRadius: 50,
-    paddingHorizontal: 20,
-    paddingVertical: 9,
-    marginTop: 14,
-    marginBottom: 16,
+    paddingVertical: 10,
+    backgroundColor: Colors.primaryLighter,
   },
   editBtnText: {
     fontFamily: "Inter_600SemiBold",
     fontSize: 14,
     color: Colors.primary,
   },
+  shareBtn: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    borderWidth: 1.5,
+    borderColor: Colors.border,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: Colors.surface,
+  },
   gridTabRow: {
     flexDirection: "row",
     backgroundColor: Colors.surface,
-    borderTopWidth: 0.5,
-    borderTopColor: Colors.borderLight,
+    borderBottomWidth: 0.5,
+    borderBottomColor: Colors.borderLight,
     paddingHorizontal: 20,
   },
   gridTabActive: {
@@ -349,34 +401,37 @@ const styles = StyleSheet.create({
   },
   gridOverlay: {
     position: "absolute",
-    bottom: 6,
-    left: 6,
+    bottom: 5,
+    left: 5,
     flexDirection: "row",
     alignItems: "center",
     gap: 3,
     backgroundColor: "rgba(0,0,0,0.45)",
-    borderRadius: 10,
-    paddingHorizontal: 6,
+    borderRadius: 8,
+    paddingHorizontal: 5,
     paddingVertical: 3,
   },
   gridLikes: {
     fontFamily: "Inter_600SemiBold",
-    fontSize: 11,
+    fontSize: 10,
     color: "#fff",
   },
   empty: {
     alignItems: "center",
-    paddingTop: 56,
+    paddingTop: 60,
     paddingHorizontal: 40,
     gap: 12,
   },
   emptyIconBg: {
-    width: 72,
-    height: 72,
-    borderRadius: 24,
+    width: 80,
+    height: 80,
+    borderRadius: 28,
     backgroundColor: Colors.primaryLighter,
     justifyContent: "center",
     alignItems: "center",
+  },
+  emptyEmoji: {
+    fontSize: 36,
   },
   emptyTitle: {
     fontFamily: "Inter_600SemiBold",
@@ -391,11 +446,19 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   emptyBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
     backgroundColor: Colors.primary,
-    paddingHorizontal: 24,
+    paddingHorizontal: 22,
     paddingVertical: 11,
     borderRadius: 50,
     marginTop: 4,
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.28,
+    shadowRadius: 8,
+    elevation: 5,
   },
   emptyBtnText: {
     fontFamily: "Inter_600SemiBold",
