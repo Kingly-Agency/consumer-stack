@@ -7,7 +7,7 @@ import {
   Pressable,
   Dimensions,
 } from "react-native";
-import { Feather } from "@expo/vector-icons";
+import { Feather, Ionicons } from "@expo/vector-icons";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -135,9 +135,9 @@ export function PostCard({
         <View style={styles.actionsRow}>
           <Pressable onPress={handleLike} style={styles.likeBtn} testID={`like-btn-${id}`}>
             <Animated.View style={[heartStyle]}>
-              <Feather
-                name={localLiked ? "heart" : "heart"}
-                size={22}
+              <Ionicons
+                name={localLiked ? "heart" : "heart-outline"}
+                size={24}
                 color={localLiked ? Colors.like : Colors.textSecondary}
               />
             </Animated.View>
