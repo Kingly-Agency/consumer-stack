@@ -23,6 +23,7 @@ import { StyleCard, ART_STYLES, ArtStyle } from "@/components/StyleCard";
 import { generateOpenaiImage, createPost, listPets } from "@workspace/api-client-react";
 import { useApp } from "@/context/AppContext";
 import { useToast } from "@/components/Toast";
+import { useLocalSearchParams } from "expo-router";
 
 const PET_TYPES = ["Dog", "Cat", "Bird", "Rabbit", "Hamster", "Fish", "Other"];
 const { width } = Dimensions.get("window");
@@ -42,6 +43,7 @@ export default function CreateScreen() {
   const { userName, displayName } = useApp();
   const toast = useToast();
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
+  const { petId: petIdParam } = useLocalSearchParams<{ petId?: string }>();
 
   const [step, setStep] = useState<Step>("upload");
   const [originalImage, setOriginalImage] = useState<string | null>(null);
@@ -60,6 +62,17 @@ export default function CreateScreen() {
     queryKey: ["pets"],
     queryFn: () => listPets(),
   });
+
+  React.useEffect(() => {
+    if (petIdParam && savedPets) {
+      const pet = savedPets.find((p) => p.id === petIdParam);
+      if (pet) {
+        setSelectedPetId(pet.id);
+        setPetName(pet.name);
+        setPetType(pet.type);
+      }
+    }
+  }, [petIdParam, savedPets]);
 
   const pickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();

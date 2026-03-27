@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   Dimensions,
   Platform,
+  Share,
 } from "react-native";
 import { useLocalSearchParams, router } from "expo-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -18,13 +19,31 @@ import Animated, { useSharedValue, useAnimatedStyle, withSpring, withSequence } 
 import * as Haptics from "expo-haptics";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Colors from "@/constants/colors";
+import { useToast } from "@/components/Toast";
 
-const { width, height } = Dimensions.get("window");
+const { width } = Dimensions.get("window");
+
+const STYLE_EMOJI: Record<string, string> = {
+  cartoon: "🎨",
+  watercolor: "💧",
+  "oil paint": "🖼️",
+  "oil painting": "🖼️",
+  "pop art": "⚡",
+  sketch: "✏️",
+  "pixel art": "👾",
+  anime: "⭐",
+  "3d render": "📦",
+};
+
+function getStyleEmoji(style: string): string {
+  return STYLE_EMOJI[style.toLowerCase()] ?? "✨";
+}
 
 export default function PostDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const insets = useSafeAreaInsets();
   const qc = useQueryClient();
+  const toast = useToast();
 
   const { data: posts, isLoading } = useQuery({
     queryKey: ["posts"],
@@ -32,6 +51,11 @@ export default function PostDetailScreen() {
   });
 
   const post = posts?.find((p) => p.id === id);
+
+  const morePosts = React.useMemo(() => {
+    if (!posts || !post) return [];
+    return posts.filter((p) => p.id !== id && p.petName?.toLowerCase() === post.petName?.toLowerCase()).slice(0, 6);
+  }, [posts, post, id]);
 
   const [localLiked, setLocalLiked] = useState<boolean | null>(null);
   const [localLikes, setLocalLikes] = useState<number | null>(null);
@@ -55,6 +79,28 @@ export default function PostDetailScreen() {
     setLocalLiked(!liked);
     setLocalLikes(liked ? likes - 1 : likes + 1);
     likeMutation.mutate();
+  };
+
+  const handleShare = async () => {
+    if (!post) return;
+    try {
+      await Share.share({
+        message: `Check out this ${post.style} portrait of ${post.petName} on PetPix! 🐾✨`,
+        title: `${post.petName}'s ${post.style} Portrait`,
+      });
+    } catch {
+      toast.show("Couldn't share", { type: "error" });
+    }
+  };
+
+  const handleTryStyle = () => {
+    if (!post) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    router.push("/(tabs)/create");
+    toast.show(`Try ${post.style} style!`, {
+      type: "info",
+      subtitle: "Select this style to create your own portrait",
+    });
   };
 
   const formatDate = (dateStr: string) => {
@@ -87,6 +133,7 @@ export default function PostDetailScreen() {
 
   const likedNow = localLiked !== null ? localLiked : post.likedByMe;
   const likesNow = localLikes !== null ? localLikes : post.likes;
+  const styleEmoji = getStyleEmoji(post.style);
 
   return (
     <View style={styles.container}>
@@ -96,8 +143,8 @@ export default function PostDetailScreen() {
           <Feather name="arrow-left" size={20} color={Colors.text} />
         </Pressable>
         <Text style={styles.navTitle}>{post.petName}'s Portrait</Text>
-        <Pressable style={styles.moreBtn}>
-          <Feather name="more-horizontal" size={20} color={Colors.text} />
+        <Pressable style={styles.shareNavBtn} onPress={handleShare}>
+          <Feather name="share" size={18} color={Colors.primary} />
         </Pressable>
       </View>
 
@@ -110,9 +157,15 @@ export default function PostDetailScreen() {
             resizeMode="cover"
           />
           <View style={styles.styleBadge}>
-            <Feather name="zap" size={11} color="#fff" />
+            <Text style={styles.styleBadgeEmoji}>{styleEmoji}</Text>
             <Text style={styles.styleText}>{post.style}</Text>
           </View>
+
+          {/* Try this style button */}
+          <Pressable style={styles.tryStyleBtn} onPress={handleTryStyle}>
+            <Feather name="zap" size={13} color={Colors.primary} />
+            <Text style={styles.tryStyleText}>Try this style</Text>
+          </Pressable>
         </View>
 
         {/* Post info */}
@@ -138,7 +191,7 @@ export default function PostDetailScreen() {
             </View>
           </View>
 
-          {/* Pet info */}
+          {/* Pet + Style info card */}
           <View style={styles.petCard}>
             <View style={styles.petCardLeft}>
               <Text style={styles.petCardLabel}>Pet</Text>
@@ -150,15 +203,20 @@ export default function PostDetailScreen() {
             <View style={styles.petCardDivider} />
             <View style={styles.petCardRight}>
               <Text style={styles.petCardLabel}>Style</Text>
-              <Text style={styles.petCardStyle}>{post.style}</Text>
+              <View style={styles.petCardStyleRow}>
+                <Text style={styles.petCardStyleEmoji}>{styleEmoji}</Text>
+                <Text style={styles.petCardStyle}>{post.style}</Text>
+              </View>
             </View>
           </View>
 
           {/* Caption */}
           {post.caption ? (
             <View style={styles.captionBox}>
-              <Text style={styles.captionUser}>{post.userName} </Text>
-              <Text style={styles.captionText}>{post.caption}</Text>
+              <Text style={styles.captionLine}>
+                <Text style={styles.captionUser}>{post.userName} </Text>
+                <Text style={styles.captionText}>{post.caption}</Text>
+              </Text>
             </View>
           ) : null}
 
@@ -177,16 +235,43 @@ export default function PostDetailScreen() {
               </Text>
             </Pressable>
             <View style={styles.actionsSpacer} />
-            <Pressable style={styles.actionBtn}>
+            <Pressable
+              style={styles.actionBtn}
+              onPress={() => toast.show("Comments coming soon!", { type: "info", subtitle: "Stay tuned for this feature" })}
+            >
               <Feather name="message-circle" size={22} color={Colors.textSecondary} />
               <Text style={styles.actionBtnText}>Comment</Text>
             </Pressable>
-            <Pressable style={styles.actionBtn}>
+            <Pressable style={styles.actionBtn} onPress={handleShare}>
               <Feather name="send" size={20} color={Colors.textSecondary} />
               <Text style={styles.actionBtnText}>Share</Text>
             </Pressable>
           </View>
         </View>
+
+        {/* More portraits of this pet */}
+        {morePosts.length > 0 && (
+          <View style={styles.moreSection}>
+            <Text style={styles.moreSectionTitle}>More portraits of {post.petName}</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.moreScroll}>
+              {morePosts.map((mp) => (
+                <Pressable
+                  key={mp.id}
+                  style={styles.moreCard}
+                  onPress={() => router.replace(`/post/${mp.id}`)}
+                >
+                  <Image
+                    source={{ uri: `data:image/png;base64,${mp.imageData}` }}
+                    style={styles.moreCardImage}
+                  />
+                  <View style={styles.moreCardBadge}>
+                    <Text style={styles.moreCardBadgeText}>{getStyleEmoji(mp.style)} {mp.style}</Text>
+                  </View>
+                </Pressable>
+              ))}
+            </ScrollView>
+          </View>
+        )}
       </ScrollView>
     </View>
   );
@@ -229,11 +314,11 @@ const styles = StyleSheet.create({
     color: Colors.text,
     letterSpacing: -0.2,
   },
-  moreBtn: {
+  shareNavBtn: {
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: Colors.surfaceSecondary,
+    backgroundColor: Colors.primaryLighter,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -260,10 +345,35 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 5,
   },
+  styleBadgeEmoji: {
+    fontSize: 12,
+  },
   styleText: {
     color: "#fff",
     fontFamily: "Inter_600SemiBold",
     fontSize: 11,
+  },
+  tryStyleBtn: {
+    position: "absolute",
+    bottom: 14,
+    right: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    backgroundColor: Colors.surface,
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  tryStyleText: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 12,
+    color: Colors.primary,
   },
   info: {
     padding: 20,
@@ -364,19 +474,29 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: Colors.primary,
   },
+  petCardStyleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+  },
+  petCardStyleEmoji: {
+    fontSize: 16,
+  },
   petCardStyle: {
     fontFamily: "Inter_600SemiBold",
     fontSize: 15,
     color: Colors.text,
   },
   captionBox: {
-    flexDirection: "row",
-    flexWrap: "wrap",
     backgroundColor: Colors.surface,
     borderRadius: 14,
     padding: 14,
     borderWidth: 1,
     borderColor: Colors.borderLight,
+  },
+  captionLine: {
+    fontSize: 14,
+    lineHeight: 20,
   },
   captionUser: {
     fontFamily: "Inter_600SemiBold",
@@ -387,9 +507,6 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_400Regular",
     fontSize: 14,
     color: Colors.text,
-    lineHeight: 20,
-    flex: 1,
-    flexShrink: 1,
   },
   actionsRow: {
     flexDirection: "row",
@@ -424,6 +541,47 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_500Medium",
     fontSize: 13,
     color: Colors.textSecondary,
+  },
+  moreSection: {
+    paddingTop: 4,
+    paddingBottom: 12,
+  },
+  moreSectionTitle: {
+    fontFamily: "Inter_700Bold",
+    fontSize: 17,
+    color: Colors.text,
+    letterSpacing: -0.2,
+    paddingHorizontal: 20,
+    marginBottom: 14,
+  },
+  moreScroll: {
+    paddingHorizontal: 20,
+    gap: 12,
+  },
+  moreCard: {
+    width: 130,
+    borderRadius: 16,
+    overflow: "hidden",
+    backgroundColor: Colors.surfaceSecondary,
+    position: "relative",
+  },
+  moreCardImage: {
+    width: 130,
+    height: 130,
+  },
+  moreCardBadge: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: "rgba(0,0,0,0.55)",
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+  },
+  moreCardBadgeText: {
+    fontFamily: "Inter_500Medium",
+    fontSize: 10,
+    color: "#fff",
   },
   notFoundText: {
     fontFamily: "Inter_500Medium",

@@ -7,7 +7,6 @@ import {
   Pressable,
   Image,
   TextInput,
-  Alert,
   ActivityIndicator,
   Modal,
   ScrollView,
@@ -15,12 +14,13 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { listPets, createPet, deletePet } from "@workspace/api-client-react";
+import { listPets, createPet, deletePet, listPosts } from "@workspace/api-client-react";
 import * as ImagePicker from "expo-image-picker";
-import { Feather } from "@expo/vector-icons";
+import { Feather, Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import Colors from "@/constants/colors";
+import { router } from "expo-router";
 
 const PET_TYPES = ["Dog", "Cat", "Bird", "Rabbit", "Hamster", "Fish", "Other"];
 
@@ -43,11 +43,32 @@ export default function PetsScreen() {
   const [type, setType] = useState("Dog");
   const [breed, setBreed] = useState("");
   const [petImage, setPetImage] = useState<string | null>(null);
+  const [actionPet, setActionPet] = useState<{ id: string; name: string } | null>(null);
+  const actionPetId = actionPet?.id ?? "";
+  const actionPetName = actionPet?.name ?? "";
 
   const { data: pets, isLoading } = useQuery({
     queryKey: ["pets"],
     queryFn: () => listPets(),
   });
+
+  const { data: posts } = useQuery({
+    queryKey: ["posts"],
+    queryFn: () => listPosts(),
+  });
+
+  const portraitCountByPet = React.useMemo(() => {
+    const map: Record<string, number> = {};
+    if (!posts || !pets) return map;
+    for (const post of posts) {
+      for (const pet of pets) {
+        if (post.petName?.toLowerCase() === pet.name.toLowerCase()) {
+          map[pet.id] = (map[pet.id] ?? 0) + 1;
+        }
+      }
+    }
+    return map;
+  }, [posts, pets]);
 
   const addMutation = useMutation({
     mutationFn: () =>
@@ -65,7 +86,10 @@ export default function PetsScreen() {
 
   const removeMutation = useMutation({
     mutationFn: (id: string) => deletePet(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["pets"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["pets"] });
+      setActionPet(null);
+    },
   });
 
   const pickPetImage = async () => {
@@ -83,11 +107,9 @@ export default function PetsScreen() {
     }
   };
 
-  const handleDelete = (id: string, petName: string) => {
-    Alert.alert("Remove Pet", `Remove ${petName} from your pets?`, [
-      { text: "Cancel", style: "cancel" },
-      { text: "Remove", style: "destructive", onPress: () => removeMutation.mutate(id) },
-    ]);
+  const handleCreatePortrait = (petId: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    router.push({ pathname: "/(tabs)/create", params: { petId } });
   };
 
   const getTypeStyle = (t: string) =>
@@ -99,7 +121,7 @@ export default function PetsScreen() {
         <View>
           <Text style={styles.headerTitle}>My Pets</Text>
           {pets && pets.length > 0 && (
-            <Text style={styles.headerSub}>{pets.length} pet{pets.length !== 1 ? "s" : ""} · Long-press to remove</Text>
+            <Text style={styles.headerSub}>{pets.length} pet{pets.length !== 1 ? "s" : ""}</Text>
           )}
         </View>
         <Pressable onPress={() => setShowModal(true)} style={styles.addBtn} testID="add-pet-btn">
@@ -120,12 +142,29 @@ export default function PetsScreen() {
           contentContainerStyle={pets && pets.length === 0 ? styles.emptyContainer : styles.listContent}
           renderItem={({ item }) => {
             const ts = getTypeStyle(item.type);
+            const count = portraitCountByPet[item.id] ?? 0;
             return (
-              <Pressable
-                style={styles.petCard}
-                onLongPress={() => handleDelete(item.id, item.name)}
-                testID={`pet-card-${item.id}`}
-              >
+              <View style={styles.petCard} testID={`pet-card-${item.id}`}>
+                {/* Portrait count badge */}
+                {count > 0 && (
+                  <View style={styles.countBadge}>
+                    <Ionicons name="images" size={10} color="#fff" />
+                    <Text style={styles.countBadgeText}>{count}</Text>
+                  </View>
+                )}
+
+                {/* 3-dot menu */}
+                <Pressable
+                  style={styles.menuBtn}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setActionPet({ id: item.id, name: item.name });
+                  }}
+                  hitSlop={8}
+                >
+                  <Feather name="more-horizontal" size={16} color={Colors.textSecondary} />
+                </Pressable>
+
                 {item.imageData ? (
                   <Image
                     source={{ uri: `data:image/jpeg;base64,${item.imageData}` }}
@@ -136,6 +175,7 @@ export default function PetsScreen() {
                     <Text style={styles.petEmoji}>{ts.emoji}</Text>
                   </View>
                 )}
+
                 <View style={styles.petInfo}>
                   <Text style={styles.petName} numberOfLines={1}>{item.name}</Text>
                   <View style={[styles.typePill, { backgroundColor: ts.bg }]}>
@@ -146,7 +186,17 @@ export default function PetsScreen() {
                     <Text style={styles.petBreed} numberOfLines={1}>{item.breed}</Text>
                   ) : null}
                 </View>
-              </Pressable>
+
+                {/* Create portrait CTA */}
+                <Pressable
+                  style={styles.createBtn}
+                  onPress={() => handleCreatePortrait(item.id)}
+                  testID={`create-portrait-${item.id}`}
+                >
+                  <Text style={styles.createBtnEmoji}>🎨</Text>
+                  <Text style={styles.createBtnText}>Create Portrait</Text>
+                </Pressable>
+              </View>
             );
           }}
           ListEmptyComponent={
@@ -170,6 +220,62 @@ export default function PetsScreen() {
         />
       )}
 
+      {/* Action sheet for pet options */}
+      <Modal
+        visible={!!actionPet}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setActionPet(null)}
+      >
+        <Pressable style={styles.actionOverlay} onPress={() => setActionPet(null)}>
+          <View style={styles.actionSheet}>
+            <View style={styles.actionSheetHandle} />
+            <Text style={styles.actionSheetTitle}>{actionPetName}</Text>
+
+            <Pressable
+              style={styles.actionOption}
+              onPress={() => {
+                setActionPet(null);
+                handleCreatePortrait(actionPetId);
+              }}
+            >
+              <View style={[styles.actionOptionIcon, { backgroundColor: Colors.primaryLighter }]}>
+                <Text style={styles.actionOptionEmoji}>🎨</Text>
+              </View>
+              <Text style={styles.actionOptionText}>Create Portrait</Text>
+              <Feather name="chevron-right" size={18} color={Colors.textTertiary} />
+            </Pressable>
+
+            <View style={styles.actionDivider} />
+
+            <Pressable
+              style={styles.actionOption}
+              onPress={() => {
+                if (actionPetId) {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                  removeMutation.mutate(actionPetId);
+                }
+              }}
+            >
+              <View style={[styles.actionOptionIcon, { backgroundColor: "#FEE2E2" }]}>
+                <Feather name="trash-2" size={16} color={Colors.error} />
+              </View>
+              <Text style={[styles.actionOptionText, { color: Colors.error }]}>Remove Pet</Text>
+              {removeMutation.isPending ? (
+                <ActivityIndicator size="small" color={Colors.error} />
+              ) : (
+                <Feather name="chevron-right" size={18} color={Colors.textTertiary} />
+              )}
+            </Pressable>
+
+            <Pressable style={styles.actionCancel} onPress={() => setActionPet(null)}>
+              <Text style={styles.actionCancelText}>Cancel</Text>
+            </Pressable>
+          </View>
+        </Pressable>
+      </Modal>
+
+      {/* Add pet modal */}
       <Modal
         visible={showModal}
         animationType="slide"
@@ -190,7 +296,6 @@ export default function PetsScreen() {
             keyboardShouldPersistTaps="handled"
             contentContainerStyle={styles.modalContent}
           >
-            {/* Photo picker */}
             <Pressable onPress={pickPetImage} style={styles.photoUpload}>
               {petImage ? (
                 <Image source={{ uri: `data:image/jpeg;base64,${petImage}` }} style={styles.photoPreview} />
@@ -207,7 +312,6 @@ export default function PetsScreen() {
             </Pressable>
             <Text style={styles.photoHint}>Tap to add a photo</Text>
 
-            {/* Name */}
             <TextInput
               style={styles.input}
               placeholder="Pet name *"
@@ -217,7 +321,6 @@ export default function PetsScreen() {
               testID="pet-name-modal-input"
             />
 
-            {/* Type */}
             <Text style={styles.fieldLabel}>What kind of pet?</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
               <View style={styles.typeRow}>
@@ -243,7 +346,6 @@ export default function PetsScreen() {
               </View>
             </ScrollView>
 
-            {/* Breed */}
             <TextInput
               style={styles.input}
               placeholder="Breed (optional)"
@@ -341,6 +443,37 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.06,
     shadowRadius: 8,
     elevation: 3,
+    position: "relative",
+  },
+  countBadge: {
+    position: "absolute",
+    top: 10,
+    left: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    backgroundColor: "rgba(0,0,0,0.52)",
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 10,
+    zIndex: 2,
+  },
+  countBadgeText: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 10,
+    color: "#fff",
+  },
+  menuBtn: {
+    position: "absolute",
+    top: 8,
+    right: 8,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: "rgba(255,255,255,0.88)",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 2,
   },
   petImage: {
     width: "100%",
@@ -356,12 +489,14 @@ const styles = StyleSheet.create({
     fontSize: 52,
   },
   petInfo: {
-    padding: 12,
-    gap: 6,
+    paddingHorizontal: 12,
+    paddingTop: 12,
+    paddingBottom: 6,
+    gap: 5,
   },
   petName: {
     fontFamily: "Inter_700Bold",
-    fontSize: 16,
+    fontSize: 15,
     color: Colors.text,
     letterSpacing: -0.2,
   },
@@ -383,8 +518,30 @@ const styles = StyleSheet.create({
   },
   petBreed: {
     fontFamily: "Inter_400Regular",
-    fontSize: 12,
+    fontSize: 11,
     color: Colors.textTertiary,
+  },
+  createBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 5,
+    marginHorizontal: 10,
+    marginBottom: 10,
+    marginTop: 4,
+    paddingVertical: 9,
+    backgroundColor: Colors.primaryLighter,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.primary + "30",
+  },
+  createBtnEmoji: {
+    fontSize: 13,
+  },
+  createBtnText: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 12,
+    color: Colors.primary,
   },
   empty: {
     alignItems: "center",
@@ -436,6 +593,73 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_600SemiBold",
     fontSize: 15,
     color: "#fff",
+  },
+  actionOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.4)",
+    justifyContent: "flex-end",
+  },
+  actionSheet: {
+    backgroundColor: Colors.surface,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    paddingHorizontal: 20,
+    paddingBottom: 36,
+    paddingTop: 12,
+  },
+  actionSheetHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: Colors.border,
+    alignSelf: "center",
+    marginBottom: 16,
+  },
+  actionSheetTitle: {
+    fontFamily: "Inter_700Bold",
+    fontSize: 18,
+    color: Colors.text,
+    marginBottom: 16,
+    textAlign: "center",
+  },
+  actionOption: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+    paddingVertical: 14,
+  },
+  actionOptionIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  actionOptionEmoji: {
+    fontSize: 20,
+  },
+  actionOptionText: {
+    flex: 1,
+    fontFamily: "Inter_500Medium",
+    fontSize: 16,
+    color: Colors.text,
+  },
+  actionDivider: {
+    height: 0.5,
+    backgroundColor: Colors.borderLight,
+    marginVertical: 4,
+  },
+  actionCancel: {
+    marginTop: 12,
+    alignItems: "center",
+    paddingVertical: 14,
+    backgroundColor: Colors.surfaceSecondary,
+    borderRadius: 16,
+  },
+  actionCancelText: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 16,
+    color: Colors.textSecondary,
   },
   modal: {
     flex: 1,
