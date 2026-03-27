@@ -14,8 +14,14 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery } from "@tanstack/react-query";
 import { getProfile, listPosts } from "@workspace/api-client-react";
 import { router } from "expo-router";
-import { Feather } from "@expo/vector-icons";
+import { Feather, Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import Colors from "@/constants/colors";
+
+const STYLE_EMOJI: Record<string, string> = {
+  cartoon: "🎨", watercolor: "💧", "oil paint": "🖼️",
+  "pop art": "⚡", sketch: "✏️", "pixel art": "👾", anime: "⭐", "3d render": "📦",
+};
 
 const { width } = Dimensions.get("window");
 const ITEM_SIZE = (width - 3) / 3;
@@ -62,24 +68,29 @@ export default function ProfileScreen() {
         contentContainerStyle={styles.listContent}
         ListHeaderComponent={
           <View>
-            {/* Cover band with pattern */}
-            <View style={[styles.coverBand, { paddingTop: topPadding }]}>
+            {/* Cover band — gradient */}
+            <LinearGradient
+              colors={["#FF6B35", "#FF9A5C", "#FFB347"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={[styles.coverBand, { paddingTop: topPadding }]}
+            >
               {/* Decorative circles */}
-              <View style={[styles.coverCircle, { top: -20, right: 40, width: 120, height: 120, opacity: 0.12 }]} />
-              <View style={[styles.coverCircle, { top: 10, right: -20, width: 80, height: 80, opacity: 0.08 }]} />
-              <View style={[styles.coverCircle, { top: -10, left: 60, width: 60, height: 60, opacity: 0.1 }]} />
+              <View style={[styles.coverCircle, { top: -20, right: 40, width: 120, height: 120, opacity: 0.15 }]} />
+              <View style={[styles.coverCircle, { top: 10, right: -20, width: 80, height: 80, opacity: 0.10 }]} />
+              <View style={[styles.coverCircle, { top: -10, left: 60, width: 60, height: 60, opacity: 0.12 }]} />
               {/* Nav */}
               <View style={styles.navBar}>
-                <Text style={styles.navTitle}>My Profile</Text>
+                <Text style={styles.navTitleWhite}>My Profile</Text>
                 <Pressable
                   onPress={() => router.push("/edit-profile")}
                   style={styles.settingsBtn}
                   testID="edit-profile-btn"
                 >
-                  <Feather name="settings" size={17} color={Colors.primary} />
+                  <Feather name="settings" size={17} color="#fff" />
                 </Pressable>
               </View>
-            </View>
+            </LinearGradient>
 
             {/* Profile body */}
             <View style={styles.profileBody}>
@@ -155,22 +166,31 @@ export default function ProfileScreen() {
             </View>
           </View>
         }
-        renderItem={({ item }) => (
-          <Pressable
-            style={styles.gridItem}
-            onPress={() => router.push(`/post/${item.id}`)}
-            testID={`grid-post-${item.id}`}
-          >
-            <Image
-              source={{ uri: `data:image/png;base64,${item.imageData}` }}
-              style={styles.gridImage}
-            />
-            <View style={styles.gridOverlay}>
-              <Feather name="heart" size={11} color="#fff" />
-              <Text style={styles.gridLikes}>{item.likes}</Text>
-            </View>
-          </Pressable>
-        )}
+        renderItem={({ item }) => {
+          const styleEmoji = STYLE_EMOJI[item.style?.toLowerCase()] ?? "✨";
+          return (
+            <Pressable
+              style={styles.gridItem}
+              onPress={() => router.push(`/post/${item.id}`)}
+              testID={`grid-post-${item.id}`}
+            >
+              <Image
+                source={{ uri: `data:image/png;base64,${item.imageData}` }}
+                style={styles.gridImage}
+              />
+              {/* Bottom info bar */}
+              <View style={styles.gridBottom}>
+                <View style={styles.gridStyleBadge}>
+                  <Text style={styles.gridStyleEmoji}>{styleEmoji}</Text>
+                </View>
+                <View style={styles.gridLikesRow}>
+                  <Ionicons name="heart" size={9} color="#fff" />
+                  <Text style={styles.gridLikes}>{item.likes}</Text>
+                </View>
+              </View>
+            </Pressable>
+          );
+        }}
         ListEmptyComponent={
           <View style={styles.empty}>
             <View style={styles.emptyIconBg}>
@@ -228,13 +248,21 @@ const styles = StyleSheet.create({
     color: Colors.text,
     letterSpacing: -0.3,
   },
+  navTitleWhite: {
+    fontFamily: "Inter_700Bold",
+    fontSize: 20,
+    color: "#fff",
+    letterSpacing: -0.3,
+  },
   settingsBtn: {
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: "rgba(255,255,255,0.8)",
+    backgroundColor: "rgba(255,255,255,0.22)",
     justifyContent: "center",
     alignItems: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.3)",
   },
   profileBody: {
     backgroundColor: Colors.surface,
@@ -414,6 +442,34 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     paddingHorizontal: 5,
     paddingVertical: 3,
+  },
+  gridBottom: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-end",
+    padding: 5,
+    paddingBottom: 6,
+    backgroundColor: "rgba(0,0,0,0.28)",
+  },
+  gridStyleBadge: {
+    width: 20,
+    height: 20,
+    borderRadius: 6,
+    backgroundColor: "rgba(255,255,255,0.18)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  gridStyleEmoji: {
+    fontSize: 12,
+  },
+  gridLikesRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2,
   },
   gridLikes: {
     fontFamily: "Inter_600SemiBold",

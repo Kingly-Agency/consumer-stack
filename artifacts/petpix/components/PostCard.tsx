@@ -19,6 +19,22 @@ import Colors from "@/constants/colors";
 
 const { width } = Dimensions.get("window");
 
+const STYLE_EMOJI: Record<string, string> = {
+  cartoon: "🎨",
+  watercolor: "💧",
+  "oil paint": "🖼️",
+  "oil painting": "🖼️",
+  "pop art": "⚡",
+  sketch: "✏️",
+  "pixel art": "👾",
+  anime: "⭐",
+  "3d render": "📦",
+};
+
+function getStyleEmoji(style: string): string {
+  return STYLE_EMOJI[style.toLowerCase()] ?? "✨";
+}
+
 interface PostCardProps {
   id: string;
   userName: string;
@@ -79,10 +95,13 @@ export function PostCard({
     return `${Math.floor(hrs / 24)}d`;
   };
 
+  const isRecent = Date.now() - new Date(createdAt).getTime() < 60 * 60 * 1000;
+  const styleEmoji = getStyleEmoji(artStyle);
+
   return (
-    <Pressable onPress={onPress} style={styles.container}>
+    <View style={styles.container}>
       {/* Header */}
-      <View style={styles.header}>
+      <Pressable onPress={onPress} style={styles.header}>
         <View style={styles.avatarWrap}>
           {userAvatar ? (
             <Image
@@ -94,8 +113,7 @@ export function PostCard({
               <Text style={styles.avatarLetter}>{userName.charAt(0).toUpperCase()}</Text>
             </View>
           )}
-          {/* Online dot decoration */}
-          <View style={styles.avatarDot} />
+          {isRecent && <View style={styles.avatarDot} />}
         </View>
 
         <View style={styles.headerInfo}>
@@ -104,40 +122,46 @@ export function PostCard({
             <View style={styles.petTag}>
               <Text style={styles.petTagText}>{petName}</Text>
             </View>
+            <Text style={styles.separator}>·</Text>
             <Text style={styles.petType}>{petType}</Text>
           </View>
         </View>
 
         <View style={styles.headerRight}>
           <Text style={styles.time}>{formatTime(createdAt)}</Text>
-          <Pressable style={styles.moreBtn}>
-            <Feather name="more-horizontal" size={18} color={Colors.textTertiary} />
-          </Pressable>
+          <View style={styles.moreBtn}>
+            <Feather name="more-horizontal" size={16} color={Colors.textTertiary} />
+          </View>
         </View>
-      </View>
+      </Pressable>
 
-      {/* Image */}
-      <View style={styles.imageContainer}>
-        <Image
-          source={{ uri: `data:image/png;base64,${imageData}` }}
-          style={styles.postImage}
-          resizeMode="cover"
-        />
-        {/* Style badge */}
-        <View style={styles.styleBadge}>
-          <Feather name="zap" size={10} color="#fff" />
-          <Text style={styles.styleText}>{artStyle}</Text>
+      {/* Image — tappable separately */}
+      <Pressable onPress={onPress}>
+        <View style={styles.imageContainer}>
+          <Image
+            source={{ uri: `data:image/png;base64,${imageData}` }}
+            style={styles.postImage}
+            resizeMode="cover"
+          />
+          {/* Bottom gradient overlay */}
+          <View style={styles.imageGradient} />
+          {/* Style badge */}
+          <View style={styles.styleBadge}>
+            <Text style={styles.styleBadgeEmoji}>{styleEmoji}</Text>
+            <Text style={styles.styleText}>{artStyle}</Text>
+          </View>
         </View>
-      </View>
+      </Pressable>
 
-      {/* Actions + caption */}
+      {/* Actions row */}
       <View style={styles.footer}>
         <View style={styles.actionsRow}>
+          {/* Like */}
           <Pressable onPress={handleLike} style={styles.likeBtn} testID={`like-btn-${id}`}>
-            <Animated.View style={[heartStyle]}>
+            <Animated.View style={heartStyle}>
               <Ionicons
                 name={localLiked ? "heart" : "heart-outline"}
-                size={24}
+                size={26}
                 color={localLiked ? Colors.like : Colors.textSecondary}
               />
             </Animated.View>
@@ -149,35 +173,36 @@ export function PostCard({
           </Pressable>
 
           <Pressable style={styles.actionBtn}>
-            <Feather name="message-circle" size={22} color={Colors.textSecondary} />
+            <Feather name="message-circle" size={24} color={Colors.textSecondary} />
           </Pressable>
 
           <Pressable style={styles.actionBtn}>
-            <Feather name="send" size={20} color={Colors.textSecondary} />
+            <Feather name="send" size={22} color={Colors.textSecondary} />
           </Pressable>
 
           <View style={styles.spacer} />
 
           <Pressable style={styles.actionBtn}>
-            <Feather name="bookmark" size={21} color={Colors.textSecondary} />
+            <Feather name="bookmark" size={23} color={Colors.textSecondary} />
           </Pressable>
         </View>
 
         {caption ? (
-          <View style={styles.captionRow}>
+          <Text style={styles.caption}>
             <Text style={styles.captionUser}>{userName} </Text>
             <Text style={styles.captionText}>{caption}</Text>
-          </View>
+          </Text>
         ) : null}
       </View>
-    </Pressable>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     backgroundColor: Colors.surface,
-    marginBottom: 8,
+    marginBottom: 10,
+    borderRadius: 0,
     borderBottomWidth: 0.5,
     borderBottomColor: Colors.borderLight,
   },
@@ -185,16 +210,18 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 16,
-    paddingVertical: 11,
+    paddingVertical: 12,
     gap: 10,
   },
   avatarWrap: {
     position: "relative",
   },
   avatarImg: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 2,
+    borderColor: Colors.primaryLighter,
   },
   avatarFallback: {
     backgroundColor: Colors.primaryLight,
@@ -204,15 +231,15 @@ const styles = StyleSheet.create({
   avatarLetter: {
     color: Colors.textInverse,
     fontFamily: "Inter_700Bold",
-    fontSize: 16,
+    fontSize: 17,
   },
   avatarDot: {
     position: "absolute",
     bottom: 1,
     right: 1,
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+    width: 11,
+    height: 11,
+    borderRadius: 6,
     backgroundColor: Colors.success,
     borderWidth: 2,
     borderColor: Colors.surface,
@@ -222,14 +249,15 @@ const styles = StyleSheet.create({
     gap: 3,
   },
   userName: {
-    fontFamily: "Inter_600SemiBold",
+    fontFamily: "Inter_700Bold",
     fontSize: 14,
     color: Colors.text,
+    letterSpacing: -0.1,
   },
   petTagRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
+    gap: 5,
   },
   petTag: {
     backgroundColor: Colors.primaryLighter,
@@ -242,6 +270,11 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: Colors.primary,
   },
+  separator: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 12,
+    color: Colors.textTertiary,
+  },
   petType: {
     fontFamily: "Inter_400Regular",
     fontSize: 12,
@@ -249,7 +282,7 @@ const styles = StyleSheet.create({
   },
   headerRight: {
     alignItems: "flex-end",
-    gap: 2,
+    gap: 4,
   },
   time: {
     fontFamily: "Inter_400Regular",
@@ -267,6 +300,15 @@ const styles = StyleSheet.create({
     height: width,
     backgroundColor: Colors.surfaceSecondary,
   },
+  imageGradient: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 56,
+    backgroundColor: "transparent",
+    backgroundImage: "linear-gradient(to bottom, transparent, rgba(0,0,0,0.22))",
+  },
   styleBadge: {
     position: "absolute",
     top: 14,
@@ -274,10 +316,13 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 5,
-    backgroundColor: "rgba(0,0,0,0.58)",
+    backgroundColor: "rgba(0,0,0,0.52)",
     borderRadius: 20,
     paddingHorizontal: 10,
     paddingVertical: 5,
+  },
+  styleBadgeEmoji: {
+    fontSize: 12,
   },
   styleText: {
     color: "#fff",
@@ -293,31 +338,32 @@ const styles = StyleSheet.create({
   actionsRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
+    gap: 2,
   },
   likeBtn: {
     flexDirection: "row",
     alignItems: "center",
     gap: 5,
-    paddingRight: 8,
+    paddingRight: 6,
+    paddingVertical: 4,
   },
   likeCount: {
     fontFamily: "Inter_600SemiBold",
-    fontSize: 14,
+    fontSize: 15,
     color: Colors.textSecondary,
   },
   actionBtn: {
-    padding: 4,
+    padding: 6,
   },
   spacer: {
     flex: 1,
   },
-  captionRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
+  caption: {
+    fontSize: 14,
+    lineHeight: 20,
   },
   captionUser: {
-    fontFamily: "Inter_600SemiBold",
+    fontFamily: "Inter_700Bold",
     fontSize: 14,
     color: Colors.text,
   },
@@ -325,8 +371,5 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_400Regular",
     fontSize: 14,
     color: Colors.text,
-    lineHeight: 20,
-    flex: 1,
-    flexShrink: 1,
   },
 });

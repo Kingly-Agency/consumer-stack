@@ -332,6 +332,13 @@ export default function HomeScreen() {
     );
   }
 
+  const greeting = React.useMemo(() => {
+    const h = new Date().getHours();
+    if (h < 12) return "Good morning";
+    if (h < 18) return "Good afternoon";
+    return "Good evening";
+  }, []);
+
   return (
     <View style={styles.container}>
       <View style={[styles.header, { paddingTop: topPadding + 10 }]}>
@@ -339,10 +346,14 @@ export default function HomeScreen() {
           <View style={styles.logoIcon}>
             <Text style={styles.logoEmoji}>🐾</Text>
           </View>
-          <Text style={styles.headerTitle}>PetPix</Text>
+          <View>
+            <Text style={styles.headerTitle}>PetPix</Text>
+            <Text style={styles.headerSub}>{greeting} 👋</Text>
+          </View>
         </View>
         <Pressable style={styles.notifBtn}>
           <Feather name="bell" size={20} color={Colors.text} />
+          <View style={styles.notifDot} />
         </Pressable>
       </View>
 
@@ -414,6 +425,13 @@ const styles = StyleSheet.create({
     fontSize: 22,
     color: Colors.primary,
     letterSpacing: -0.5,
+    lineHeight: 26,
+  },
+  headerSub: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 11,
+    color: Colors.textTertiary,
+    lineHeight: 14,
   },
   notifBtn: {
     width: 38,
@@ -422,6 +440,18 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surfaceSecondary,
     justifyContent: "center",
     alignItems: "center",
+    position: "relative",
+  },
+  notifDot: {
+    position: "absolute",
+    top: 7,
+    right: 8,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: Colors.error,
+    borderWidth: 1.5,
+    borderColor: Colors.surfaceSecondary,
   },
   listContent: {
     paddingBottom: 110,
