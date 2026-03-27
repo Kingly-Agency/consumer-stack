@@ -288,15 +288,23 @@ export default function CommunityScreen() {
         <FlatList
           data={filteredPosts}
           keyExtractor={(item) => item.id}
+          extraData={filter + sort}
           renderItem={({ item }) => (
-            <PostCard {...item} userAvatar={item.userAvatar ?? undefined} onLike={handleLike} />
+            <PostCard
+              {...item}
+              userAvatar={item.userAvatar ?? undefined}
+              onLike={handleLike}
+              onPress={() => router.push(`/post/${item.id}`)}
+            />
           )}
           refreshControl={
             <RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={Colors.primary} />
           }
           ListEmptyComponent={
             <View style={styles.filterEmpty}>
-              <Text style={styles.filterEmptyText}>No {filter === "all" ? "posts" : filter + "s"} found</Text>
+              <Text style={styles.filterEmptyText}>
+                No {filter === "all" ? "posts" : filter + "s"} found
+              </Text>
             </View>
           }
           contentContainerStyle={styles.listContent}

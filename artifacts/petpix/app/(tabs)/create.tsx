@@ -15,26 +15,32 @@ import {
 import * as ImagePicker from "expo-image-picker";
 import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import Colors from "@/constants/colors";
 import { StyleCard, ART_STYLES, ArtStyle } from "@/components/StyleCard";
-import { generateOpenaiImage, createPost } from "@workspace/api-client-react";
+import { generateOpenaiImage, createPost, listPets } from "@workspace/api-client-react";
 import { useApp } from "@/context/AppContext";
+import { useToast } from "@/components/Toast";
 
 const PET_TYPES = ["Dog", "Cat", "Bird", "Rabbit", "Hamster", "Fish", "Other"];
 const { width } = Dimensions.get("window");
 
 const STEPS = ["Photo", "Style", "Preview", "Share"];
-
 type Step = "upload" | "style" | "preview" | "share";
 const STEP_LIST: Step[] = ["upload", "style", "preview", "share"];
+
+const PET_TYPE_EMOJIS: Record<string, string> = {
+  dog: "🐶", cat: "🐱", bird: "🐦", rabbit: "🐰",
+  hamster: "🐹", fish: "🐠", other: "🐾",
+};
 
 export default function CreateScreen() {
   const insets = useSafeAreaInsets();
   const qc = useQueryClient();
-  const { userName } = useApp();
+  const { userName, displayName } = useApp();
+  const toast = useToast();
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
 
   const [step, setStep] = useState<Step>("upload");
@@ -46,8 +52,14 @@ export default function CreateScreen() {
   const [caption, setCaption] = useState("");
   const [customPrompt, setCustomPrompt] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
+  const [selectedPetId, setSelectedPetId] = useState<string | null>(null);
 
   const stepIndex = STEP_LIST.indexOf(step);
+
+  const { data: savedPets } = useQuery({
+    queryKey: ["pets"],
+    queryFn: () => listPets(),
+  });
 
   const pickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -86,13 +98,20 @@ export default function CreateScreen() {
     }
   };
 
+  const selectSavedPet = (pet: { id: string; name: string; type: string }) => {
+    setSelectedPetId(pet.id);
+    setPetName(pet.name);
+    setPetType(pet.type);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
+
   const generateImage = async () => {
     if (!selectedStyle && !customPrompt) {
-      Alert.alert("Select a style", "Please pick an art style or enter a custom prompt.");
+      toast.show("Select a style", { type: "info", subtitle: "Pick an art style or enter custom details" });
       return;
     }
     if (!petName.trim()) {
-      Alert.alert("Pet name required", "Please enter your pet's name.");
+      toast.show("Pet name required", { type: "info", subtitle: "Enter your pet's name to continue" });
       return;
     }
     setIsGenerating(true);
@@ -105,7 +124,7 @@ export default function CreateScreen() {
       setStep("preview");
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch {
-      Alert.alert("Generation failed", "Could not generate the image. Please try again.");
+      toast.show("Generation failed", { type: "error", subtitle: "Could not generate the image. Please try again." });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     } finally {
       setIsGenerating(false);
@@ -120,13 +139,16 @@ export default function CreateScreen() {
         imageData: generatedImage!,
         style: selectedStyle?.name ?? "Custom",
         caption,
-        userName,
+        userName: displayName || userName,
       }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["posts"] });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       resetForm();
-      Alert.alert("Posted!", "Your pet portrait is live on the community feed.");
+      toast.show("Portrait posted! 🎉", { subtitle: "Your pet art is live on the community feed" });
+    },
+    onError: () => {
+      toast.show("Post failed", { type: "error", subtitle: "Could not share your portrait. Try again." });
     },
   });
 
@@ -139,6 +161,7 @@ export default function CreateScreen() {
     setPetType("Dog");
     setCaption("");
     setCustomPrompt("");
+    setSelectedPetId(null);
   };
 
   const canGenerate = petName.trim() && (!!selectedStyle || customPrompt.trim());
@@ -250,15 +273,67 @@ export default function CreateScreen() {
             </View>
           )}
 
+          {/* Saved pets quick-select */}
+          {savedPets && savedPets.length > 0 && (
+            <View>
+              <Text style={styles.fieldLabel}>Your pets</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                <View style={styles.savedPetsRow}>
+                  {savedPets.map((pet) => {
+                    const emoji = PET_TYPE_EMOJIS[pet.type.toLowerCase()] ?? "🐾";
+                    const isSelected = selectedPetId === pet.id;
+                    return (
+                      <Pressable
+                        key={pet.id}
+                        onPress={() => selectSavedPet(pet)}
+                        style={[styles.savedPetChip, isSelected && styles.savedPetChipActive]}
+                      >
+                        {pet.imageData ? (
+                          <Image
+                            source={{ uri: `data:image/jpeg;base64,${pet.imageData}` }}
+                            style={styles.savedPetAvatar}
+                          />
+                        ) : (
+                          <View style={[styles.savedPetAvatarPlaceholder, isSelected && styles.savedPetAvatarPlaceholderActive]}>
+                            <Text style={styles.savedPetEmoji}>{emoji}</Text>
+                          </View>
+                        )}
+                        <Text style={[styles.savedPetName, isSelected && styles.savedPetNameActive]} numberOfLines={1}>
+                          {pet.name}
+                        </Text>
+                        {isSelected && (
+                          <View style={styles.savedPetCheck}>
+                            <Feather name="check" size={10} color="#fff" />
+                          </View>
+                        )}
+                      </Pressable>
+                    );
+                  })}
+                  {/* "New pet" option */}
+                  <Pressable
+                    onPress={() => { setSelectedPetId(null); setPetName(""); setPetType("Dog"); }}
+                    style={[styles.savedPetChip, !selectedPetId && savedPets.length > 0 && styles.savedPetChipNew]}
+                  >
+                    <View style={styles.savedPetAvatarNew}>
+                      <Feather name="plus" size={18} color={Colors.primary} />
+                    </View>
+                    <Text style={styles.savedPetNewText}>New</Text>
+                  </Pressable>
+                </View>
+              </ScrollView>
+            </View>
+          )}
+
           <TextInput
             style={styles.input}
             placeholder="Pet name *"
             placeholderTextColor={Colors.textTertiary}
             value={petName}
-            onChangeText={setPetName}
+            onChangeText={(t) => { setPetName(t); setSelectedPetId(null); }}
             testID="pet-name-input"
           />
 
+          {/* Pet type */}
           <View>
             <Text style={styles.fieldLabel}>Pet type</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
@@ -269,6 +344,7 @@ export default function CreateScreen() {
                     onPress={() => setPetType(type)}
                     style={[styles.chip, petType === type && styles.chipActive]}
                   >
+                    <Text style={styles.chipEmoji}>{PET_TYPE_EMOJIS[type.toLowerCase()] ?? "🐾"}</Text>
                     <Text style={[styles.chipText, petType === type && styles.chipTextActive]}>{type}</Text>
                   </Pressable>
                 ))}
@@ -276,6 +352,7 @@ export default function CreateScreen() {
             </ScrollView>
           </View>
 
+          {/* Art style */}
           <View>
             <Text style={styles.fieldLabel}>Art style</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
@@ -314,7 +391,7 @@ export default function CreateScreen() {
             {isGenerating ? (
               <>
                 <ActivityIndicator color="#fff" size="small" />
-                <Text style={styles.primaryBtnText}>Generating magic...</Text>
+                <Text style={styles.primaryBtnText}>Generating magic…</Text>
               </>
             ) : (
               <>
@@ -344,6 +421,7 @@ export default function CreateScreen() {
             />
             {selectedStyle && (
               <View style={styles.styleBadge}>
+                <Text style={styles.styleBadgeEmoji}>{selectedStyle.emoji}</Text>
                 <Text style={styles.styleBadgeText}>{selectedStyle.name}</Text>
               </View>
             )}
@@ -354,7 +432,7 @@ export default function CreateScreen() {
               <Feather name="refresh-cw" size={15} color={Colors.primary} />
               <Text style={styles.outlineBtnText}>Try again</Text>
             </Pressable>
-            <Pressable onPress={() => setStep("share")} style={styles.primaryBtn}>
+            <Pressable onPress={() => setStep("share")} style={[styles.primaryBtn, styles.previewShareBtn]}>
               <Text style={styles.primaryBtnText}>Share to community</Text>
               <Feather name="arrow-right" size={16} color="#fff" />
             </Pressable>
@@ -378,7 +456,10 @@ export default function CreateScreen() {
             />
             <View style={styles.sharePreviewInfo}>
               <Text style={styles.sharePreviewName}>{petName}</Text>
-              <Text style={styles.sharePreviewStyle}>{selectedStyle?.name ?? "Custom"} style</Text>
+              <View style={styles.sharePreviewBadge}>
+                {selectedStyle && <Text style={styles.sharePreviewBadgeEmoji}>{selectedStyle.emoji}</Text>}
+                <Text style={styles.sharePreviewStyle}>{selectedStyle?.name ?? "Custom"} style</Text>
+              </View>
             </View>
           </View>
 
@@ -602,11 +683,6 @@ const styles = StyleSheet.create({
     padding: 14,
     borderWidth: 1,
     borderColor: Colors.border,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
-    elevation: 1,
   },
   thumbImage: {
     width: 68,
@@ -635,6 +711,86 @@ const styles = StyleSheet.create({
   changePhotoText: {
     fontFamily: "Inter_500Medium",
     fontSize: 12,
+    color: Colors.primary,
+  },
+  savedPetsRow: {
+    flexDirection: "row",
+    gap: 10,
+    paddingBottom: 4,
+  },
+  savedPetChip: {
+    alignItems: "center",
+    gap: 5,
+    width: 66,
+    position: "relative",
+  },
+  savedPetChipActive: {
+    opacity: 1,
+  },
+  savedPetChipNew: {
+    opacity: 1,
+  },
+  savedPetAvatar: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    borderWidth: 2.5,
+    borderColor: Colors.border,
+  },
+  savedPetAvatarPlaceholder: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: Colors.surfaceSecondary,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 2.5,
+    borderColor: Colors.border,
+  },
+  savedPetAvatarPlaceholderActive: {
+    borderColor: Colors.primary,
+    backgroundColor: Colors.primaryLighter,
+  },
+  savedPetEmoji: {
+    fontSize: 24,
+  },
+  savedPetName: {
+    fontFamily: "Inter_500Medium",
+    fontSize: 11,
+    color: Colors.textSecondary,
+    textAlign: "center",
+  },
+  savedPetNameActive: {
+    color: Colors.primary,
+    fontFamily: "Inter_600SemiBold",
+  },
+  savedPetCheck: {
+    position: "absolute",
+    top: 0,
+    right: 2,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: Colors.primary,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 2,
+    borderColor: Colors.background,
+  },
+  savedPetAvatarNew: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: Colors.primaryLighter,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 2,
+    borderColor: Colors.primary,
+    borderStyle: "dashed",
+  },
+  savedPetNewText: {
+    fontFamily: "Inter_500Medium",
+    fontSize: 11,
     color: Colors.primary,
   },
   input: {
@@ -667,13 +823,19 @@ const styles = StyleSheet.create({
     paddingBottom: 4,
   },
   chip: {
-    paddingHorizontal: 18,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 14,
     paddingVertical: 9,
     borderRadius: 50,
     backgroundColor: Colors.surfaceSecondary,
   },
   chipActive: {
     backgroundColor: Colors.primary,
+  },
+  chipEmoji: {
+    fontSize: 14,
   },
   chipText: {
     fontFamily: "Inter_500Medium",
@@ -736,8 +898,8 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.12,
-    shadowRadius: 16,
+    shadowOpacity: 0.14,
+    shadowRadius: 20,
     elevation: 8,
   },
   generatedImage: {
@@ -749,19 +911,28 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: 14,
     right: 14,
-    backgroundColor: "rgba(0,0,0,0.6)",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    backgroundColor: "rgba(0,0,0,0.55)",
     borderRadius: 20,
-    paddingHorizontal: 12,
+    paddingHorizontal: 10,
     paddingVertical: 5,
+  },
+  styleBadgeEmoji: {
+    fontSize: 14,
   },
   styleBadgeText: {
     color: "#fff",
     fontFamily: "Inter_600SemiBold",
-    fontSize: 12,
+    fontSize: 11,
   },
   previewActions: {
     flexDirection: "row",
     gap: 12,
+  },
+  previewShareBtn: {
+    flex: 2,
   },
   sharePreviewRow: {
     flexDirection: "row",
@@ -780,21 +951,36 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surfaceSecondary,
   },
   sharePreviewInfo: {
-    gap: 4,
+    flex: 1,
+    gap: 6,
   },
   sharePreviewName: {
     fontFamily: "Inter_700Bold",
-    fontSize: 16,
+    fontSize: 17,
     color: Colors.text,
+    letterSpacing: -0.2,
+  },
+  sharePreviewBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    backgroundColor: Colors.primaryLighter,
+    alignSelf: "flex-start",
+    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  sharePreviewBadgeEmoji: {
+    fontSize: 12,
   },
   sharePreviewStyle: {
-    fontFamily: "Inter_400Regular",
-    fontSize: 13,
-    color: Colors.textSecondary,
+    fontFamily: "Inter_500Medium",
+    fontSize: 12,
+    color: Colors.primary,
   },
   ghostBtn: {
     alignItems: "center",
-    paddingVertical: 10,
+    paddingVertical: 12,
   },
   ghostBtnText: {
     fontFamily: "Inter_400Regular",

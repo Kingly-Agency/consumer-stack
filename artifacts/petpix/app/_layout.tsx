@@ -16,6 +16,7 @@ import { setBaseUrl } from "@workspace/api-client-react";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { AppProvider } from "@/context/AppContext";
+import { ToastProvider } from "@/components/Toast";
 
 setBaseUrl(`https://${process.env.EXPO_PUBLIC_DOMAIN}`);
 
@@ -36,6 +37,13 @@ function RootLayoutNav() {
         options={{
           headerShown: false,
           presentation: "modal",
+        }}
+      />
+      <Stack.Screen
+        name="post/[id]"
+        options={{
+          headerShown: false,
+          animation: "slide_from_right",
         }}
       />
     </Stack>
@@ -63,11 +71,13 @@ export default function RootLayout() {
       <ErrorBoundary>
         <QueryClientProvider client={queryClient}>
           <AppProvider>
-            <GestureHandlerRootView style={{ flex: 1 }}>
-              <KeyboardProvider>
-                <RootLayoutNav />
-              </KeyboardProvider>
-            </GestureHandlerRootView>
+            <ToastProvider>
+              <GestureHandlerRootView style={{ flex: 1 }}>
+                <KeyboardProvider>
+                  <RootLayoutNav />
+                </KeyboardProvider>
+              </GestureHandlerRootView>
+            </ToastProvider>
           </AppProvider>
         </QueryClientProvider>
       </ErrorBoundary>

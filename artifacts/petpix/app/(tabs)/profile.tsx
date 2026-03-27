@@ -156,7 +156,11 @@ export default function ProfileScreen() {
           </View>
         }
         renderItem={({ item }) => (
-          <Pressable style={styles.gridItem} testID={`grid-post-${item.id}`}>
+          <Pressable
+            style={styles.gridItem}
+            onPress={() => router.push(`/post/${item.id}`)}
+            testID={`grid-post-${item.id}`}
+          >
             <Image
               source={{ uri: `data:image/png;base64,${item.imageData}` }}
               style={styles.gridImage}

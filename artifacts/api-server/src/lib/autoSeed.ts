@@ -5,6 +5,28 @@ import { createGradientPNG, STYLE_PALETTES } from "./seedImages";
 
 const SEED_POSTS = [
   {
+    id: "seed-my-001",
+    userId: "user-001",
+    userName: "petlover",
+    petName: "Buddy",
+    petType: "Dog",
+    style: "Watercolor",
+    caption: "My dog Buddy looking majestic in watercolor 🎨",
+    likes: 18,
+    likedByUser001: false,
+  },
+  {
+    id: "seed-my-002",
+    userId: "user-001",
+    userName: "petlover",
+    petName: "Whiskers",
+    petType: "Cat",
+    style: "Pop Art",
+    caption: "Pop art Whiskers stealing hearts 😻",
+    likes: 34,
+    likedByUser001: false,
+  },
+  {
     id: "seed-001",
     userId: "user-002",
     userName: "SophiaPaws",
@@ -118,14 +140,7 @@ const SEED_POSTS = [
 
 export async function autoSeed(): Promise<void> {
   try {
-    const rows = await db.select({ count: sql<number>`count(*)` }).from(postsTable);
-    const count = Number(rows[0]?.count ?? 0);
-    if (count > 0) {
-      logger.info({ count }, "DB already has posts, skipping seed");
-      return;
-    }
-
-    logger.info("Seeding database with sample posts…");
+    logger.info("Checking seed posts…");
 
     for (const seed of SEED_POSTS) {
       const palette = STYLE_PALETTES[seed.style] ?? STYLE_PALETTES["Cartoon"];

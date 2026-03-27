@@ -95,15 +95,25 @@ Generated React Query hooks and fetch client from the OpenAPI spec (e.g. `useHea
 
 Expo React Native mobile app — "PetPix - AI Pet Art". Users upload pet photos, apply AI art styles to generate portraits using OpenAI's image generation, share to a community feed, manage pets, and maintain a user profile.
 
-- **Routing**: Expo Router file-based routing, 5-tab layout (Home, Community, Create, My Pets, Profile)
+- **Routing**: Expo Router file-based routing, 5-tab layout (Home, Community, Create [floating orange +], My Pets, Profile) + modal routes `edit-profile` and `post/[id]`
 - **State**: React Query for server state (`@workspace/api-client-react` hooks)
-- **Theme**: Light/warm — primary orange `#FF6B35`, cream backgrounds
+- **Theme**: Light/warm — primary orange `#FF6B35`, cream backgrounds. All colors in `constants/colors.ts`
 - **Auth**: Single default user "user-001" (no authentication)
-- **AI**: Uses Replit AI Integrations OpenAI proxy (no user API key needed)
-- **Key screens**: `app/(tabs)/index.tsx` (home feed), `app/(tabs)/community.tsx` (community with filters), `app/(tabs)/create.tsx` (4-step AI creation flow), `app/(tabs)/pets.tsx` (pet management), `app/(tabs)/profile.tsx` (Instagram-style profile grid), `app/edit-profile.tsx` (profile editing modal)
-- **Key components**: `PostCard`, `StyleCard` (8 art styles: cartoon, watercolor, oil painting, pop art, sketch, pixel, anime, 3D render)
-- **Constants**: `constants/colors.ts` — design token colors
-- **Context**: `context/AppContext.tsx` — provides userId and userName
+- **AI**: Uses Replit AI Integrations OpenAI proxy — `gpt-image-1` model (no user API key needed)
+- **Key screens**:
+  - `app/(tabs)/index.tsx` — home feed with PostCard FlatList
+  - `app/(tabs)/community.tsx` — community feed with pet type filters (dog/cat/bird/rabbit/other) + sort toggle (recent/popular); FlatList needs `extraData={filter+sort}` to re-render on filter change
+  - `app/(tabs)/create.tsx` — 4-step AI creation flow (upload → style → preview → share); pet selector pulls from saved pets; uses `useToast()` instead of Alert.alert
+  - `app/(tabs)/pets.tsx` — 2-column pet grid; add/delete pets via modal
+  - `app/(tabs)/profile.tsx` — Instagram-style cover band + avatar + stats pill + portrait grid; grid taps navigate to post detail
+  - `app/edit-profile.tsx` — profile editing modal (avatar picker, name, username, bio)
+  - `app/post/[id].tsx` — post detail screen with full image, pet info card, like button
+- **Key components**:
+  - `PostCard` — Instagram-style card with Ionicons `heart`/`heart-outline` for like state, spring animation via Reanimated
+  - `StyleCard` — 3-color gradient swatch + emoji + name + description for 8 art styles
+  - `Toast.tsx` — global toast notification system (`ToastProvider` + `useToast()` hook)
+- **Context**: `context/AppContext.tsx` — provides `userId`, `userName`, `displayName` (synced from profile DB via React Query)
+- **Auto-seed**: API server seeds DB on startup with 12 sample posts (idempotent via `onConflictDoNothing`) in `src/lib/autoSeed.ts`; includes 2 posts by user-001 so profile grid is populated
 
 ### `scripts` (`@workspace/scripts`)
 

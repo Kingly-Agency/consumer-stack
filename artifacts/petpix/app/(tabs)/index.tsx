@@ -357,6 +357,7 @@ export default function HomeScreen() {
               {...item}
               userAvatar={item.userAvatar ?? undefined}
               onLike={handleLike}
+              onPress={() => router.push(`/post/${item.id}`)}
             />
           )}
           refreshControl={
