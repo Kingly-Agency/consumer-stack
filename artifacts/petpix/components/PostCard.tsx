@@ -61,8 +61,8 @@ export function PostCard({
   const handleLike = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     heartScale.value = withSequence(
-      withSpring(1.4, { damping: 8 }),
-      withSpring(1, { damping: 8 })
+      withSpring(1.45, { damping: 7 }),
+      withSpring(1, { damping: 9 })
     );
     setLocalLiked(!localLiked);
     setLocalLikes((prev) => (localLiked ? prev - 1 : prev + 1));
@@ -72,6 +72,7 @@ export function PostCard({
   const formatTime = (dateStr: string) => {
     const diff = Date.now() - new Date(dateStr).getTime();
     const mins = Math.floor(diff / 60000);
+    if (mins < 1) return "just now";
     if (mins < 60) return `${mins}m`;
     const hrs = Math.floor(mins / 60);
     if (hrs < 24) return `${hrs}h`;
@@ -80,62 +81,93 @@ export function PostCard({
 
   return (
     <Pressable onPress={onPress} style={styles.container}>
+      {/* Header */}
       <View style={styles.header}>
-        <View style={styles.avatar}>
+        <View style={styles.avatarWrap}>
           {userAvatar ? (
-            <Image source={{ uri: `data:image/png;base64,${userAvatar}` }} style={styles.avatarImage} />
+            <Image
+              source={{ uri: `data:image/png;base64,${userAvatar}` }}
+              style={styles.avatarImg}
+            />
           ) : (
-            <View style={[styles.avatarImage, styles.avatarPlaceholder]}>
+            <View style={[styles.avatarImg, styles.avatarFallback]}>
               <Text style={styles.avatarLetter}>{userName.charAt(0).toUpperCase()}</Text>
             </View>
           )}
+          {/* Online dot decoration */}
+          <View style={styles.avatarDot} />
         </View>
-        <View style={styles.headerText}>
+
+        <View style={styles.headerInfo}>
           <Text style={styles.userName}>{userName}</Text>
-          <Text style={styles.petInfo}>{petName} · {petType}</Text>
+          <View style={styles.petTagRow}>
+            <View style={styles.petTag}>
+              <Text style={styles.petTagText}>{petName}</Text>
+            </View>
+            <Text style={styles.petType}>{petType}</Text>
+          </View>
         </View>
-        <Text style={styles.time}>{formatTime(createdAt)}</Text>
+
+        <View style={styles.headerRight}>
+          <Text style={styles.time}>{formatTime(createdAt)}</Text>
+          <Pressable style={styles.moreBtn}>
+            <Feather name="more-horizontal" size={18} color={Colors.textTertiary} />
+          </Pressable>
+        </View>
       </View>
 
-      <View style={styles.imageWrapper}>
+      {/* Image */}
+      <View style={styles.imageContainer}>
         <Image
           source={{ uri: `data:image/png;base64,${imageData}` }}
           style={styles.postImage}
           resizeMode="cover"
         />
+        {/* Style badge */}
         <View style={styles.styleBadge}>
+          <Feather name="zap" size={10} color="#fff" />
           <Text style={styles.styleText}>{artStyle}</Text>
         </View>
       </View>
 
+      {/* Actions + caption */}
       <View style={styles.footer}>
-        <View style={styles.actions}>
-          <Pressable onPress={handleLike} style={styles.actionBtn} testID={`like-btn-${id}`}>
-            <Animated.View style={heartStyle}>
+        <View style={styles.actionsRow}>
+          <Pressable onPress={handleLike} style={styles.likeBtn} testID={`like-btn-${id}`}>
+            <Animated.View style={[heartStyle]}>
               <Feather
-                name="heart"
+                name={localLiked ? "heart" : "heart"}
                 size={22}
                 color={localLiked ? Colors.like : Colors.textSecondary}
-                style={localLiked ? { opacity: 1 } : {}}
               />
             </Animated.View>
-            <Text style={[styles.actionCount, localLiked && { color: Colors.like }]}>
-              {localLikes}
-            </Text>
+            {localLikes > 0 && (
+              <Text style={[styles.likeCount, localLiked && { color: Colors.like }]}>
+                {localLikes}
+              </Text>
+            )}
           </Pressable>
+
           <Pressable style={styles.actionBtn}>
             <Feather name="message-circle" size={22} color={Colors.textSecondary} />
           </Pressable>
+
           <Pressable style={styles.actionBtn}>
-            <Feather name="share-2" size={22} color={Colors.textSecondary} />
+            <Feather name="send" size={20} color={Colors.textSecondary} />
+          </Pressable>
+
+          <View style={styles.spacer} />
+
+          <Pressable style={styles.actionBtn}>
+            <Feather name="bookmark" size={21} color={Colors.textSecondary} />
           </Pressable>
         </View>
 
         {caption ? (
-          <Text style={styles.caption} numberOfLines={2}>
+          <View style={styles.captionRow}>
             <Text style={styles.captionUser}>{userName} </Text>
-            {caption}
-          </Text>
+            <Text style={styles.captionText}>{caption}</Text>
+          </View>
         ) : null}
       </View>
     </Pressable>
@@ -153,21 +185,18 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 11,
     gap: 10,
   },
-  avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    overflow: "hidden",
+  avatarWrap: {
+    position: "relative",
   },
-  avatarImage: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+  avatarImg: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
   },
-  avatarPlaceholder: {
+  avatarFallback: {
     backgroundColor: Colors.primaryLight,
     justifyContent: "center",
     alignItems: "center",
@@ -177,26 +206,60 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_700Bold",
     fontSize: 16,
   },
-  headerText: {
+  avatarDot: {
+    position: "absolute",
+    bottom: 1,
+    right: 1,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: Colors.success,
+    borderWidth: 2,
+    borderColor: Colors.surface,
+  },
+  headerInfo: {
     flex: 1,
+    gap: 3,
   },
   userName: {
     fontFamily: "Inter_600SemiBold",
     fontSize: 14,
     color: Colors.text,
   },
-  petInfo: {
-    fontFamily: "Inter_400Regular",
-    fontSize: 12,
-    color: Colors.textSecondary,
-    marginTop: 1,
+  petTagRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
   },
-  time: {
+  petTag: {
+    backgroundColor: Colors.primaryLighter,
+    borderRadius: 6,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+  },
+  petTagText: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 11,
+    color: Colors.primary,
+  },
+  petType: {
     fontFamily: "Inter_400Regular",
     fontSize: 12,
     color: Colors.textTertiary,
   },
-  imageWrapper: {
+  headerRight: {
+    alignItems: "flex-end",
+    gap: 2,
+  },
+  time: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 11,
+    color: Colors.textTertiary,
+  },
+  moreBtn: {
+    padding: 2,
+  },
+  imageContainer: {
     position: "relative",
   },
   postImage: {
@@ -206,46 +269,64 @@ const styles = StyleSheet.create({
   },
   styleBadge: {
     position: "absolute",
-    top: 12,
-    right: 12,
-    backgroundColor: "rgba(0,0,0,0.55)",
+    top: 14,
+    right: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    backgroundColor: "rgba(0,0,0,0.58)",
     borderRadius: 20,
     paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingVertical: 5,
   },
   styleText: {
     color: "#fff",
-    fontFamily: "Inter_500Medium",
+    fontFamily: "Inter_600SemiBold",
     fontSize: 11,
   },
   footer: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 14,
     paddingTop: 10,
-    paddingBottom: 12,
+    paddingBottom: 14,
+    gap: 8,
   },
-  actions: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 16,
-    marginBottom: 8,
-  },
-  actionBtn: {
+  actionsRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
   },
-  actionCount: {
-    fontFamily: "Inter_500Medium",
-    fontSize: 13,
+  likeBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingRight: 8,
+  },
+  likeCount: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 14,
     color: Colors.textSecondary,
   },
-  caption: {
+  actionBtn: {
+    padding: 4,
+  },
+  spacer: {
+    flex: 1,
+  },
+  captionRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+  },
+  captionUser: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 14,
+    color: Colors.text,
+  },
+  captionText: {
     fontFamily: "Inter_400Regular",
     fontSize: 14,
     color: Colors.text,
     lineHeight: 20,
-  },
-  captionUser: {
-    fontFamily: "Inter_600SemiBold",
+    flex: 1,
+    flexShrink: 1,
   },
 });

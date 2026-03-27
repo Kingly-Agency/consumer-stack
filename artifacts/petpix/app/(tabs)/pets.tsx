@@ -24,14 +24,24 @@ import Colors from "@/constants/colors";
 
 const PET_TYPES = ["Dog", "Cat", "Bird", "Rabbit", "Hamster", "Fish", "Other"];
 
-const PET_TYPE_ICONS: Record<string, { name: keyof typeof Feather.glyphMap; color: string; bg: string }> = {
-  dog: { name: "disc", color: "#FF6B35", bg: "#FFF0EB" },
-  cat: { name: "circle", color: "#9C27B0", bg: "#F3E5F5" },
-  bird: { name: "feather", color: "#2196F3", bg: "#E3F2FD" },
-  rabbit: { name: "activity", color: "#4CAF50", bg: "#E8F5E9" },
-  hamster: { name: "sun", color: "#FF9800", bg: "#FFF3E0" },
-  fish: { name: "anchor", color: "#00BCD4", bg: "#E0F7FA" },
-  other: { name: "heart", color: "#E91E63", bg: "#FCE4EC" },
+const PET_TYPE_COLORS: Record<string, { color: string; bg: string }> = {
+  dog: { color: "#FF6B35", bg: "#FFF0EB" },
+  cat: { color: "#9C27B0", bg: "#F3E5F5" },
+  bird: { color: "#2196F3", bg: "#E3F2FD" },
+  rabbit: { color: "#4CAF50", bg: "#E8F5E9" },
+  hamster: { color: "#FF9800", bg: "#FFF3E0" },
+  fish: { color: "#00BCD4", bg: "#E0F7FA" },
+  other: { color: "#E91E63", bg: "#FCE4EC" },
+};
+
+const PET_EMOJIS: Record<string, string> = {
+  dog: "🐶",
+  cat: "🐱",
+  bird: "🐦",
+  rabbit: "🐰",
+  hamster: "🐹",
+  fish: "🐠",
+  other: "🐾",
 };
 
 export default function PetsScreen() {
@@ -44,7 +54,7 @@ export default function PetsScreen() {
   const [breed, setBreed] = useState("");
   const [petImage, setPetImage] = useState<string | null>(null);
 
-  const { data: pets, isLoading, isError, refetch } = useQuery({
+  const { data: pets, isLoading, refetch } = useQuery({
     queryKey: ["pets"],
     queryFn: () => listPets(),
   });
@@ -65,9 +75,7 @@ export default function PetsScreen() {
 
   const removeMutation = useMutation({
     mutationFn: (id: string) => deletePet(id),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["pets"] });
-    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["pets"] }),
   });
 
   const pickPetImage = async () => {
@@ -88,24 +96,24 @@ export default function PetsScreen() {
   const handleDelete = (id: string, petName: string) => {
     Alert.alert("Remove Pet", `Remove ${petName} from your pets?`, [
       { text: "Cancel", style: "cancel" },
-      {
-        text: "Remove",
-        style: "destructive",
-        onPress: () => removeMutation.mutate(id),
-      },
+      { text: "Remove", style: "destructive", onPress: () => removeMutation.mutate(id) },
     ]);
   };
 
-  const getTypeIcon = (type: string) => {
-    return PET_TYPE_ICONS[type.toLowerCase()] ?? PET_TYPE_ICONS.other;
-  };
+  const getTypeStyle = (t: string) =>
+    PET_TYPE_COLORS[t.toLowerCase()] ?? PET_TYPE_COLORS.other;
 
   return (
     <View style={styles.container}>
       <View style={[styles.header, { paddingTop: topPadding + 12 }]}>
-        <Text style={styles.headerTitle}>My Pets</Text>
+        <View>
+          <Text style={styles.headerTitle}>My Pets</Text>
+          {pets && pets.length > 0 && (
+            <Text style={styles.headerSub}>{pets.length} pet{pets.length !== 1 ? "s" : ""}</Text>
+          )}
+        </View>
         <Pressable onPress={() => setShowModal(true)} style={styles.addBtn} testID="add-pet-btn">
-          <Feather name="plus" size={20} color={Colors.textInverse} />
+          <Feather name="plus" size={20} color="#fff" />
         </Pressable>
       </View>
 
@@ -113,20 +121,15 @@ export default function PetsScreen() {
         <View style={styles.centered}>
           <ActivityIndicator size="large" color={Colors.primary} />
         </View>
-      ) : isError ? (
-        <View style={styles.centered}>
-          <Feather name="wifi-off" size={40} color={Colors.textTertiary} />
-          <Text style={styles.errorText}>Failed to load pets</Text>
-        </View>
       ) : (
         <FlatList
           data={pets ?? []}
           keyExtractor={(item) => item.id}
-          scrollEnabled={!!(pets && pets.length > 0)}
           numColumns={2}
           columnWrapperStyle={styles.row}
           renderItem={({ item }) => {
-            const icon = getTypeIcon(item.type);
+            const tc = getTypeStyle(item.type);
+            const emoji = PET_EMOJIS[item.type.toLowerCase()] ?? "🐾";
             return (
               <Pressable
                 style={styles.petCard}
@@ -139,33 +142,41 @@ export default function PetsScreen() {
                     style={styles.petImage}
                   />
                 ) : (
-                  <View style={[styles.petImagePlaceholder, { backgroundColor: icon.bg }]}>
-                    <Feather name={icon.name} size={36} color={icon.color} />
+                  <View style={[styles.petImagePlaceholder, { backgroundColor: tc.bg }]}>
+                    <Text style={styles.petEmoji}>{emoji}</Text>
                   </View>
                 )}
                 <View style={styles.petInfo}>
-                  <Text style={styles.petName}>{item.name}</Text>
-                  <View style={[styles.typePill, { backgroundColor: icon.bg }]}>
-                    <Text style={[styles.typeLabel, { color: icon.color }]}>{item.type}</Text>
+                  <Text style={styles.petName} numberOfLines={1}>{item.name}</Text>
+                  <View style={[styles.typePill, { backgroundColor: tc.bg }]}>
+                    <Text style={[styles.typeLabel, { color: tc.color }]}>{item.type}</Text>
                   </View>
                   {item.breed ? (
                     <Text style={styles.petBreed} numberOfLines={1}>{item.breed}</Text>
                   ) : null}
+                </View>
+                <View style={styles.longPressHint}>
+                  <Feather name="more-vertical" size={14} color={Colors.textTertiary} />
                 </View>
               </Pressable>
             );
           }}
           ListEmptyComponent={
             <View style={styles.empty}>
-              <MaterialCommunityIcons name="paw" size={60} color={Colors.textTertiary} />
+              <Text style={styles.emptyEmoji}>🐾</Text>
               <Text style={styles.emptyTitle}>No pets yet</Text>
-              <Text style={styles.emptyText}>Add your furry friends to create AI portraits of them!</Text>
+              <Text style={styles.emptyText}>
+                Add your furry, feathery, or scaly friends to start creating AI portraits!
+              </Text>
               <Pressable onPress={() => setShowModal(true)} style={styles.emptyBtn}>
+                <Feather name="plus" size={16} color="#fff" />
                 <Text style={styles.emptyBtnText}>Add your first pet</Text>
               </Pressable>
             </View>
           }
-          contentContainerStyle={pets && pets.length === 0 ? styles.emptyContainer : styles.listContent}
+          contentContainerStyle={
+            pets && pets.length === 0 ? styles.emptyContainer : styles.listContent
+          }
           showsVerticalScrollIndicator={false}
         />
       )}
@@ -179,9 +190,9 @@ export default function PetsScreen() {
         <View style={styles.modal}>
           <View style={styles.modalHandle} />
           <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Add Pet</Text>
-            <Pressable onPress={() => setShowModal(false)}>
-              <Feather name="x" size={24} color={Colors.text} />
+            <Text style={styles.modalTitle}>Add a Pet</Text>
+            <Pressable onPress={() => setShowModal(false)} style={styles.closeBtn}>
+              <Feather name="x" size={20} color={Colors.text} />
             </Pressable>
           </View>
 
@@ -210,17 +221,23 @@ export default function PetsScreen() {
               testID="pet-name-modal-input"
             />
 
-            <Text style={styles.label}>Type</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.typesRow}>
-              {PET_TYPES.map((t) => (
-                <Pressable
-                  key={t}
-                  onPress={() => setType(t)}
-                  style={[styles.typeBtn, type === t && styles.typeBtnActive]}
-                >
-                  <Text style={[styles.typeText, type === t && styles.typeTextActive]}>{t}</Text>
-                </Pressable>
-              ))}
+            <Text style={styles.fieldLabel}>Type</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              <View style={styles.chipRow}>
+                {PET_TYPES.map((t) => {
+                  const emoji = PET_EMOJIS[t.toLowerCase()] ?? "🐾";
+                  return (
+                    <Pressable
+                      key={t}
+                      onPress={() => setType(t)}
+                      style={[styles.typeChip, type === t && styles.typeChipActive]}
+                    >
+                      <Text style={styles.typeChipEmoji}>{emoji}</Text>
+                      <Text style={[styles.typeChipText, type === t && styles.typeChipTextActive]}>{t}</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
             </ScrollView>
 
             <TextInput
@@ -238,9 +255,12 @@ export default function PetsScreen() {
               testID="save-pet-btn"
             >
               {addMutation.isPending ? (
-                <ActivityIndicator color={Colors.textInverse} />
+                <ActivityIndicator color="#fff" />
               ) : (
-                <Text style={styles.saveBtnText}>Add Pet</Text>
+                <>
+                  <Feather name="check" size={16} color="#fff" />
+                  <Text style={styles.saveBtnText}>Add Pet</Text>
+                </>
               )}
             </Pressable>
           </KeyboardAwareScrollView>
@@ -259,7 +279,6 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    gap: 12,
   },
   header: {
     flexDirection: "row",
@@ -275,14 +294,26 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_700Bold",
     fontSize: 24,
     color: Colors.text,
+    letterSpacing: -0.3,
+  },
+  headerSub: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 12,
+    color: Colors.textTertiary,
+    marginTop: 1,
   },
   addBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     backgroundColor: Colors.primary,
     justifyContent: "center",
     alignItems: "center",
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    elevation: 5,
   },
   listContent: {
     padding: 16,
@@ -294,13 +325,14 @@ const styles = StyleSheet.create({
   petCard: {
     flex: 1,
     backgroundColor: Colors.surface,
-    borderRadius: 20,
+    borderRadius: 22,
     overflow: "hidden",
-    shadowColor: Colors.cardShadow,
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 1,
+    shadowOpacity: 0.06,
     shadowRadius: 8,
     elevation: 3,
+    position: "relative",
   },
   petImage: {
     width: "100%",
@@ -312,14 +344,18 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
+  petEmoji: {
+    fontSize: 48,
+  },
   petInfo: {
     padding: 12,
     gap: 6,
   },
   petName: {
-    fontFamily: "Inter_600SemiBold",
+    fontFamily: "Inter_700Bold",
     fontSize: 16,
     color: Colors.text,
+    letterSpacing: -0.2,
   },
   typePill: {
     alignSelf: "flex-start",
@@ -336,6 +372,14 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: Colors.textTertiary,
   },
+  longPressHint: {
+    position: "absolute",
+    top: 8,
+    right: 8,
+    backgroundColor: "rgba(255,255,255,0.75)",
+    borderRadius: 12,
+    padding: 4,
+  },
   empty: {
     alignItems: "center",
     paddingHorizontal: 40,
@@ -345,8 +389,12 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
   },
+  emptyEmoji: {
+    fontSize: 64,
+    marginBottom: 4,
+  },
   emptyTitle: {
-    fontFamily: "Inter_600SemiBold",
+    fontFamily: "Inter_700Bold",
     fontSize: 22,
     color: Colors.text,
   },
@@ -358,27 +406,28 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   emptyBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
     backgroundColor: Colors.primary,
-    paddingHorizontal: 24,
+    paddingHorizontal: 22,
     paddingVertical: 12,
-    borderRadius: 14,
+    borderRadius: 50,
     marginTop: 8,
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
   },
   emptyBtnText: {
     fontFamily: "Inter_600SemiBold",
     fontSize: 15,
-    color: Colors.textInverse,
-  },
-  errorText: {
-    fontFamily: "Inter_500Medium",
-    fontSize: 16,
-    color: Colors.textSecondary,
+    color: "#fff",
   },
   modal: {
     flex: 1,
     backgroundColor: Colors.background,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
     paddingTop: 12,
   },
   modalHandle: {
@@ -394,35 +443,47 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: 20,
-    marginBottom: 20,
+    marginBottom: 24,
   },
   modalTitle: {
     fontFamily: "Inter_700Bold",
-    fontSize: 22,
+    fontSize: 24,
     color: Colors.text,
+    letterSpacing: -0.3,
+  },
+  closeBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: Colors.surfaceSecondary,
+    justifyContent: "center",
+    alignItems: "center",
   },
   modalContent: {
     paddingHorizontal: 20,
     paddingBottom: 40,
-    gap: 14,
+    gap: 16,
   },
   photoUpload: {
     alignSelf: "center",
-    marginBottom: 8,
+    marginBottom: 4,
   },
   photoPreview: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
+    width: 110,
+    height: 110,
+    borderRadius: 55,
   },
   photoPlaceholder: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
+    width: 110,
+    height: 110,
+    borderRadius: 55,
     backgroundColor: Colors.primaryLighter,
     justifyContent: "center",
     alignItems: "center",
     gap: 6,
+    borderWidth: 2,
+    borderColor: Colors.primary,
+    borderStyle: "dashed",
   },
   photoPlaceholderText: {
     fontFamily: "Inter_500Medium",
@@ -440,47 +501,68 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.border,
   },
-  label: {
+  fieldLabel: {
     fontFamily: "Inter_600SemiBold",
-    fontSize: 13,
-    color: Colors.textSecondary,
+    fontSize: 12,
+    color: Colors.textTertiary,
     textTransform: "uppercase",
-    letterSpacing: 0.5,
+    letterSpacing: 0.8,
+    marginBottom: -4,
   },
-  typesRow: {
-    marginTop: -6,
+  chipRow: {
+    flexDirection: "row",
+    gap: 8,
   },
-  typeBtn: {
-    paddingHorizontal: 16,
+  typeChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 14,
     paddingVertical: 9,
-    borderRadius: 20,
+    borderRadius: 50,
     backgroundColor: Colors.surfaceSecondary,
-    marginRight: 8,
+    borderWidth: 1.5,
+    borderColor: "transparent",
   },
-  typeBtnActive: {
-    backgroundColor: Colors.primary,
+  typeChipActive: {
+    backgroundColor: Colors.primaryLighter,
+    borderColor: Colors.primary,
   },
-  typeText: {
+  typeChipEmoji: {
+    fontSize: 16,
+  },
+  typeChipText: {
     fontFamily: "Inter_500Medium",
     fontSize: 13,
     color: Colors.textSecondary,
   },
-  typeTextActive: {
-    color: Colors.textInverse,
+  typeChipTextActive: {
+    color: Colors.primary,
+    fontFamily: "Inter_600SemiBold",
   },
   saveBtn: {
-    backgroundColor: Colors.primary,
-    borderRadius: 14,
-    paddingVertical: 16,
+    flexDirection: "row",
     alignItems: "center",
-    marginTop: 8,
+    justifyContent: "center",
+    gap: 8,
+    backgroundColor: Colors.primary,
+    borderRadius: 16,
+    paddingVertical: 16,
+    marginTop: 4,
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 5,
   },
   saveBtnDisabled: {
-    opacity: 0.5,
+    opacity: 0.45,
+    shadowOpacity: 0,
+    elevation: 0,
   },
   saveBtnText: {
     fontFamily: "Inter_600SemiBold",
     fontSize: 16,
-    color: Colors.textInverse,
+    color: "#fff",
   },
 });

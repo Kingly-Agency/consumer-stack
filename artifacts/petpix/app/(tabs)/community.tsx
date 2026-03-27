@@ -18,7 +18,7 @@ import Colors from "@/constants/colors";
 import { Feather } from "@expo/vector-icons";
 
 const PET_FILTERS = [
-  { id: "all", label: "All", icon: "globe" as const },
+  { id: "all", label: "All pets", icon: "globe" as const },
   { id: "dog", label: "Dogs", icon: "disc" as const },
   { id: "cat", label: "Cats", icon: "circle" as const },
   { id: "bird", label: "Birds", icon: "feather" as const },
@@ -27,8 +27,8 @@ const PET_FILTERS = [
 ];
 
 const SORT_OPTIONS = [
-  { id: "recent", label: "Recent" },
-  { id: "popular", label: "Popular" },
+  { id: "recent", label: "Recent", icon: "clock" as const },
+  { id: "popular", label: "Popular", icon: "trending-up" as const },
 ];
 
 export default function CommunityScreen() {
@@ -48,9 +48,10 @@ export default function CommunityScreen() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["posts"] }),
   });
 
-  const handleLike = useCallback((id: string) => {
-    likeMutation.mutate(id);
-  }, [likeMutation]);
+  const handleLike = useCallback(
+    (id: string) => { likeMutation.mutate(id); },
+    [likeMutation]
+  );
 
   const filteredPosts = (posts ?? [])
     .filter((p) => filter === "all" || p.petType.toLowerCase() === filter)
@@ -62,15 +63,27 @@ export default function CommunityScreen() {
 
   return (
     <View style={styles.container}>
+      {/* Header */}
       <View style={[styles.header, { paddingTop: topPadding + 12 }]}>
-        <Text style={styles.headerTitle}>Community</Text>
-        <View style={styles.sortRow}>
+        <View>
+          <Text style={styles.headerTitle}>Community</Text>
+          <Text style={styles.headerSub}>
+            {posts ? `${posts.length} portrait${posts.length !== 1 ? "s" : ""}` : "Discover AI pet art"}
+          </Text>
+        </View>
+        {/* Sort toggle */}
+        <View style={styles.sortToggle}>
           {SORT_OPTIONS.map((opt) => (
             <Pressable
               key={opt.id}
               onPress={() => setSort(opt.id)}
               style={[styles.sortBtn, sort === opt.id && styles.sortBtnActive]}
             >
+              <Feather
+                name={opt.icon}
+                size={13}
+                color={sort === opt.id ? Colors.primary : Colors.textTertiary}
+              />
               <Text style={[styles.sortText, sort === opt.id && styles.sortTextActive]}>
                 {opt.label}
               </Text>
@@ -79,24 +92,25 @@ export default function CommunityScreen() {
         </View>
       </View>
 
-      <View style={styles.filtersContainer}>
+      {/* Pet type filters */}
+      <View style={styles.filtersBar}>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.filters}
+          contentContainerStyle={styles.filtersContent}
         >
           {PET_FILTERS.map((f) => (
             <Pressable
               key={f.id}
               onPress={() => setFilter(f.id)}
-              style={[styles.filterBtn, filter === f.id && styles.filterBtnActive]}
+              style={[styles.filterChip, filter === f.id && styles.filterChipActive]}
             >
               <Feather
                 name={f.icon}
-                size={14}
+                size={13}
                 color={filter === f.id ? Colors.textInverse : Colors.textSecondary}
               />
-              <Text style={[styles.filterText, filter === f.id && styles.filterTextActive]}>
+              <Text style={[styles.filterChipText, filter === f.id && styles.filterChipTextActive]}>
                 {f.label}
               </Text>
             </Pressable>
@@ -117,18 +131,29 @@ export default function CommunityScreen() {
         <FlatList
           data={filteredPosts}
           keyExtractor={(item) => item.id}
-          scrollEnabled={!!filteredPosts.length}
           renderItem={({ item }) => (
-            <PostCard {...item} userAvatar={item.userAvatar ?? undefined} onLike={handleLike} />
+            <PostCard
+              {...item}
+              userAvatar={item.userAvatar ?? undefined}
+              onLike={handleLike}
+            />
           )}
           refreshControl={
-            <RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={Colors.primary} />
+            <RefreshControl
+              refreshing={isRefetching}
+              onRefresh={refetch}
+              tintColor={Colors.primary}
+            />
           }
           ListEmptyComponent={
             <View style={styles.empty}>
-              <Feather name="image" size={52} color={Colors.textTertiary} />
-              <Text style={styles.emptyTitle}>No posts here</Text>
-              <Text style={styles.emptyText}>Be the first to share a {filter === "all" ? "pet" : filter} portrait!</Text>
+              <View style={styles.emptyIconBg}>
+                <Feather name="image" size={28} color={Colors.primary} />
+              </View>
+              <Text style={styles.emptyTitle}>Nothing here yet</Text>
+              <Text style={styles.emptyText}>
+                Be the first to share a {filter === "all" ? "pet" : filter} portrait!
+              </Text>
             </View>
           }
           contentContainerStyle={filteredPosts.length === 0 ? styles.emptyContainer : undefined}
@@ -155,7 +180,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: 20,
-    paddingBottom: 12,
+    paddingBottom: 14,
     backgroundColor: Colors.surface,
     borderBottomWidth: 0.5,
     borderBottomColor: Colors.borderLight,
@@ -164,69 +189,80 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_700Bold",
     fontSize: 24,
     color: Colors.text,
+    letterSpacing: -0.3,
   },
-  sortRow: {
+  headerSub: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 12,
+    color: Colors.textTertiary,
+    marginTop: 1,
+  },
+  sortToggle: {
     flexDirection: "row",
-    gap: 4,
     backgroundColor: Colors.surfaceSecondary,
-    borderRadius: 20,
+    borderRadius: 22,
     padding: 3,
+    gap: 2,
   },
   sortBtn: {
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 18,
   },
   sortBtnActive: {
     backgroundColor: Colors.surface,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 3,
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
     elevation: 2,
   },
   sortText: {
     fontFamily: "Inter_500Medium",
-    fontSize: 13,
-    color: Colors.textSecondary,
+    fontSize: 12,
+    color: Colors.textTertiary,
   },
   sortTextActive: {
     color: Colors.text,
+    fontFamily: "Inter_600SemiBold",
   },
-  filtersContainer: {
+  filtersBar: {
     backgroundColor: Colors.surface,
-    paddingBottom: 10,
     borderBottomWidth: 0.5,
     borderBottomColor: Colors.borderLight,
   },
-  filters: {
+  filtersContent: {
     paddingHorizontal: 16,
-    paddingTop: 10,
+    paddingVertical: 10,
     gap: 8,
     flexDirection: "row",
   },
-  filterBtn: {
+  filterChip: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
+    gap: 5,
     paddingHorizontal: 14,
     paddingVertical: 8,
-    borderRadius: 20,
+    borderRadius: 50,
     backgroundColor: Colors.surfaceSecondary,
   },
-  filterBtnActive: {
+  filterChipActive: {
     backgroundColor: Colors.primary,
   },
-  filterText: {
+  filterChipText: {
     fontFamily: "Inter_500Medium",
     fontSize: 13,
     color: Colors.textSecondary,
   },
-  filterTextActive: {
+  filterChipTextActive: {
     color: Colors.textInverse,
   },
   empty: {
     alignItems: "center",
+    paddingTop: 64,
     paddingHorizontal: 40,
     gap: 12,
   },
@@ -234,17 +270,25 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
   },
+  emptyIconBg: {
+    width: 68,
+    height: 68,
+    borderRadius: 22,
+    backgroundColor: Colors.primaryLighter,
+    justifyContent: "center",
+    alignItems: "center",
+  },
   emptyTitle: {
     fontFamily: "Inter_600SemiBold",
-    fontSize: 20,
+    fontSize: 18,
     color: Colors.text,
   },
   emptyText: {
     fontFamily: "Inter_400Regular",
-    fontSize: 15,
+    fontSize: 14,
     color: Colors.textSecondary,
     textAlign: "center",
-    lineHeight: 22,
+    lineHeight: 20,
   },
   errorText: {
     fontFamily: "Inter_500Medium",
