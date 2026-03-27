@@ -13,7 +13,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { listPosts, likePost } from "@workspace/api-client-react";
+import { listPosts, likePost, listNotifications } from "@workspace/api-client-react";
 import { router } from "expo-router";
 import { PostCard } from "@/components/PostCard";
 import Colors from "@/constants/colors";
@@ -435,6 +435,13 @@ export default function HomeScreen() {
     queryFn: () => listPosts(),
   });
 
+  const { data: notifications } = useQuery({
+    queryKey: ["notifications"],
+    queryFn: listNotifications,
+  });
+
+  const unreadCount = notifications?.filter((n) => !n.read).length ?? 0;
+
   const likeMutation = useMutation({
     mutationFn: (id: string) => likePost(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["posts"] }),
@@ -481,9 +488,13 @@ export default function HomeScreen() {
             <Text style={styles.headerSub}>{greeting} 👋</Text>
           </View>
         </View>
-        <Pressable style={styles.notifBtn}>
+        <Pressable style={styles.notifBtn} onPress={() => router.push("/notifications")}>
           <Feather name="bell" size={20} color={Colors.text} />
-          <View style={styles.notifDot} />
+          {unreadCount > 0 && (
+            <View style={styles.notifBadge}>
+              <Text style={styles.notifBadgeText}>{unreadCount > 9 ? "9+" : unreadCount}</Text>
+            </View>
+          )}
         </Pressable>
       </View>
 
@@ -499,6 +510,7 @@ export default function HomeScreen() {
               userAvatar={item.userAvatar ?? undefined}
               onLike={handleLike}
               onPress={() => router.push(`/post/${item.id}`)}
+              onCommentPress={() => router.push(`/post/${item.id}`)}
             />
           )}
           ListHeaderComponent={
@@ -580,16 +592,24 @@ const styles = StyleSheet.create({
     alignItems: "center",
     position: "relative",
   },
-  notifDot: {
+  notifBadge: {
     position: "absolute",
-    top: 7,
-    right: 8,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    top: 4,
+    right: 4,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
     backgroundColor: Colors.error,
     borderWidth: 1.5,
     borderColor: Colors.surfaceSecondary,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 3,
+  },
+  notifBadgeText: {
+    color: "#fff",
+    fontFamily: "Inter_700Bold",
+    fontSize: 9,
   },
   listContent: {
     paddingBottom: 110,

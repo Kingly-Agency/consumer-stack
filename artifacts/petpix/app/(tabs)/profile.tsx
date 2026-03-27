@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -12,7 +12,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery } from "@tanstack/react-query";
-import { getProfile, listPosts } from "@workspace/api-client-react";
+import { getProfile, listPosts, listSavedIds } from "@workspace/api-client-react";
 import { router } from "expo-router";
 import { Feather, Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -31,6 +31,7 @@ const COVER_HEIGHT = 130;
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
+  const [activeTab, setActiveTab] = useState<"posts" | "saved">("posts");
 
   const { data: profile, isLoading: profileLoading } = useQuery({
     queryKey: ["profile"],
@@ -42,7 +43,14 @@ export default function ProfileScreen() {
     queryFn: () => listPosts(),
   });
 
+  const { data: savedIds = [] } = useQuery({
+    queryKey: ["savedIds"],
+    queryFn: listSavedIds,
+  });
+
   const myPosts = (posts ?? []).filter((p) => p.userId === "user-001");
+  const savedPosts = (posts ?? []).filter((p) => savedIds.includes(p.id));
+  const displayPosts = activeTab === "saved" ? savedPosts : myPosts;
 
   const STATS = [
     { label: "Posts", value: myPosts.length },
@@ -61,9 +69,10 @@ export default function ProfileScreen() {
   return (
     <View style={styles.container}>
       <FlatList
-        data={myPosts}
-        keyExtractor={(item) => item.id}
+        data={displayPosts}
+        keyExtractor={(item) => item.id + activeTab}
         numColumns={3}
+        key={activeTab}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.listContent}
         ListHeaderComponent={
@@ -155,14 +164,30 @@ export default function ProfileScreen() {
               </View>
             </View>
 
-            {/* Grid tab */}
+            {/* Grid tabs */}
             <View style={styles.gridTabRow}>
-              <View style={styles.gridTabActive}>
-                <Feather name="grid" size={15} color={Colors.primary} />
-                <Text style={styles.gridTabText}>
+              <Pressable
+                style={[styles.gridTab, activeTab === "posts" && styles.gridTabActive]}
+                onPress={() => setActiveTab("posts")}
+              >
+                <Feather name="grid" size={15} color={activeTab === "posts" ? Colors.primary : Colors.textTertiary} />
+                <Text style={[styles.gridTabText, activeTab !== "posts" && styles.gridTabTextInactive]}>
                   {myPosts.length > 0 ? `${myPosts.length} Portrait${myPosts.length !== 1 ? "s" : ""}` : "Portraits"}
                 </Text>
-              </View>
+              </Pressable>
+              <Pressable
+                style={[styles.gridTab, activeTab === "saved" && styles.gridTabActive]}
+                onPress={() => setActiveTab("saved")}
+              >
+                <Ionicons
+                  name={activeTab === "saved" ? "bookmark" : "bookmark-outline"}
+                  size={15}
+                  color={activeTab === "saved" ? Colors.primary : Colors.textTertiary}
+                />
+                <Text style={[styles.gridTabText, activeTab !== "saved" && styles.gridTabTextInactive]}>
+                  {savedPosts.length > 0 ? `${savedPosts.length} Saved` : "Saved"}
+                </Text>
+              </Pressable>
             </View>
           </View>
         }
@@ -192,19 +217,31 @@ export default function ProfileScreen() {
           );
         }}
         ListEmptyComponent={
-          <View style={styles.empty}>
-            <View style={styles.emptyIconBg}>
-              <Text style={styles.emptyEmoji}>🎨</Text>
+          activeTab === "saved" ? (
+            <View style={styles.empty}>
+              <View style={styles.emptyIconBg}>
+                <Text style={styles.emptyEmoji}>🔖</Text>
+              </View>
+              <Text style={styles.emptyTitle}>No saved posts yet</Text>
+              <Text style={styles.emptyText}>
+                Tap the bookmark icon on any portrait to save it here!
+              </Text>
             </View>
-            <Text style={styles.emptyTitle}>No portraits yet</Text>
-            <Text style={styles.emptyText}>
-              Create your first AI pet portrait and it'll appear here!
-            </Text>
-            <Pressable onPress={() => router.push("/create")} style={styles.emptyBtn}>
-              <Feather name="zap" size={15} color="#fff" />
-              <Text style={styles.emptyBtnText}>Create now</Text>
-            </Pressable>
-          </View>
+          ) : (
+            <View style={styles.empty}>
+              <View style={styles.emptyIconBg}>
+                <Text style={styles.emptyEmoji}>🎨</Text>
+              </View>
+              <Text style={styles.emptyTitle}>No portraits yet</Text>
+              <Text style={styles.emptyText}>
+                Create your first AI pet portrait and it'll appear here!
+              </Text>
+              <Pressable onPress={() => router.push("/create")} style={styles.emptyBtn}>
+                <Feather name="zap" size={15} color="#fff" />
+                <Text style={styles.emptyBtnText}>Create now</Text>
+              </Pressable>
+            </View>
+          )
         }
       />
     </View>
@@ -405,20 +442,28 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surface,
     borderBottomWidth: 0.5,
     borderBottomColor: Colors.borderLight,
-    paddingHorizontal: 20,
   },
-  gridTabActive: {
+  gridTab: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
     gap: 6,
     paddingVertical: 12,
     borderBottomWidth: 2,
+    borderBottomColor: "transparent",
+  },
+  gridTabActive: {
     borderBottomColor: Colors.primary,
   },
   gridTabText: {
     fontFamily: "Inter_600SemiBold",
     fontSize: 13,
     color: Colors.primary,
+  },
+  gridTabTextInactive: {
+    color: Colors.textTertiary,
+    fontFamily: "Inter_500Medium",
   },
   gridItem: {
     width: ITEM_SIZE,

@@ -1,5 +1,6 @@
 import { db, postsTable, postLikesTable } from "@workspace/db";
-import { eq, and, sql } from "drizzle-orm";
+import { notificationsTable } from "@workspace/db";
+import { eq, and } from "drizzle-orm";
 import { logger } from "./logger";
 import { createGradientPNG, STYLE_PALETTES } from "./seedImages";
 
@@ -138,6 +139,59 @@ const SEED_POSTS = [
   },
 ];
 
+const SEED_NOTIFICATIONS = [
+  {
+    id: "notif-seed-001",
+    userId: "user-001",
+    type: "like",
+    fromUser: "AnimeAddict",
+    fromUserAvatar: null,
+    postId: "seed-my-001",
+    message: "AnimeAddict liked your Watercolor portrait of Buddy!",
+    read: false,
+  },
+  {
+    id: "notif-seed-002",
+    userId: "user-001",
+    type: "comment",
+    fromUser: "SophiaPaws",
+    fromUserAvatar: null,
+    postId: "seed-my-001",
+    message: "SophiaPaws commented: \"Omg this is so beautiful!! 😍\"",
+    read: false,
+  },
+  {
+    id: "notif-seed-003",
+    userId: "user-001",
+    type: "like",
+    fromUser: "MeowMaster",
+    fromUserAvatar: null,
+    postId: "seed-my-002",
+    message: "MeowMaster liked your Pop Art portrait of Whiskers!",
+    read: true,
+  },
+  {
+    id: "notif-seed-004",
+    userId: "user-001",
+    type: "comment",
+    fromUser: "PixelPetFan",
+    fromUserAvatar: null,
+    postId: "seed-my-002",
+    message: "PixelPetFan commented: \"Whiskers is iconic 👾\"",
+    read: true,
+  },
+  {
+    id: "notif-seed-005",
+    userId: "user-001",
+    type: "like",
+    fromUser: "PoppyArtist",
+    fromUserAvatar: null,
+    postId: "seed-my-001",
+    message: "PoppyArtist liked your Watercolor portrait of Buddy!",
+    read: false,
+  },
+];
+
 export async function autoSeed(): Promise<void> {
   try {
     logger.info("Checking seed posts…");
@@ -171,6 +225,30 @@ export async function autoSeed(): Promise<void> {
           await db.insert(postLikesTable).values({ postId: seed.id, userId: "user-001" });
         }
       }
+    }
+
+    logger.info("Seeding notifications…");
+    for (const notif of SEED_NOTIFICATIONS) {
+      const post = SEED_POSTS.find((p) => p.id === notif.postId);
+      const palette = post ? (STYLE_PALETTES[post.style] ?? STYLE_PALETTES["Cartoon"]) : STYLE_PALETTES["Cartoon"];
+      const postImageData = post
+        ? createGradientPNG(512, 512, palette.top, palette.bottom, palette.accent)
+        : null;
+
+      await db
+        .insert(notificationsTable)
+        .values({
+          id: notif.id,
+          userId: notif.userId,
+          type: notif.type,
+          fromUser: notif.fromUser,
+          fromUserAvatar: notif.fromUserAvatar,
+          postId: notif.postId ?? null,
+          postImageData,
+          message: notif.message,
+          read: notif.read,
+        })
+        .onConflictDoNothing();
     }
 
     logger.info({ count: SEED_POSTS.length }, "Seed complete");

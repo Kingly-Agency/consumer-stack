@@ -6,6 +6,7 @@ import {
   StyleSheet,
   Pressable,
   Dimensions,
+  Share,
 } from "react-native";
 import { Feather, Ionicons } from "@expo/vector-icons";
 import Animated, {
@@ -18,6 +19,7 @@ import Animated, {
 } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
 import Colors from "@/constants/colors";
+import { toggleSave } from "@workspace/api-client-react";
 
 const { width } = Dimensions.get("window");
 
@@ -48,9 +50,11 @@ interface PostCardProps {
   caption: string;
   likes: number;
   likedByMe: boolean;
+  savedByMe?: boolean;
   createdAt: string;
   onLike: (id: string) => void;
   onPress?: () => void;
+  onCommentPress?: () => void;
 }
 
 export function PostCard({
@@ -64,16 +68,21 @@ export function PostCard({
   caption,
   likes,
   likedByMe,
+  savedByMe = false,
   createdAt,
   onLike,
   onPress,
+  onCommentPress,
 }: PostCardProps) {
   const heartScale = useSharedValue(1);
   const heartFloatY = useSharedValue(0);
   const heartFloatOpacity = useSharedValue(0);
   const heartFloatScale = useSharedValue(0.3);
+  const bookmarkScale = useSharedValue(1);
+
   const [localLiked, setLocalLiked] = useState(likedByMe);
   const [localLikes, setLocalLikes] = useState(likes);
+  const [localSaved, setLocalSaved] = useState(savedByMe);
   const lastTapRef = useRef<number>(0);
   const tapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -86,6 +95,10 @@ export function PostCard({
     opacity: heartFloatOpacity.value,
   }));
 
+  const bookmarkStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: bookmarkScale.value }],
+  }));
+
   const handleLike = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     heartScale.value = withSequence(
@@ -95,6 +108,33 @@ export function PostCard({
     setLocalLiked(!localLiked);
     setLocalLikes((prev) => (localLiked ? prev - 1 : prev + 1));
     onLike(id);
+  };
+
+  const handleSave = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    bookmarkScale.value = withSequence(
+      withSpring(1.4, { damping: 7 }),
+      withSpring(1, { damping: 9 })
+    );
+    const wasSaved = localSaved;
+    setLocalSaved(!wasSaved);
+    try {
+      const result = await toggleSave(id);
+      setLocalSaved(result.saved);
+    } catch {
+      setLocalSaved(wasSaved);
+    }
+  };
+
+  const handleShare = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    try {
+      await Share.share({
+        message: `Check out this ${artStyle} portrait of ${petName} on PetPix! 🐾✨`,
+        title: `${petName}'s ${artStyle} Portrait`,
+      });
+    } catch {
+    }
   };
 
   const triggerFloatHeart = () => {
@@ -188,14 +228,11 @@ export function PostCard({
             style={styles.postImage}
             resizeMode="cover"
           />
-          {/* Bottom gradient overlay */}
           <View style={styles.imageGradient} />
-          {/* Style badge */}
           <View style={styles.styleBadge}>
             <Text style={styles.styleBadgeEmoji}>{styleEmoji}</Text>
             <Text style={styles.styleText}>{artStyle}</Text>
           </View>
-          {/* Floating heart on double-tap */}
           <Animated.Text style={[styles.floatHeart, floatHeartStyle]}>❤️</Animated.Text>
         </View>
       </Pressable>
@@ -219,18 +256,24 @@ export function PostCard({
             )}
           </Pressable>
 
-          <Pressable style={styles.actionBtn}>
+          <Pressable style={styles.actionBtn} onPress={onCommentPress ?? onPress}>
             <Feather name="message-circle" size={24} color={Colors.textSecondary} />
           </Pressable>
 
-          <Pressable style={styles.actionBtn}>
+          <Pressable style={styles.actionBtn} onPress={handleShare}>
             <Feather name="send" size={22} color={Colors.textSecondary} />
           </Pressable>
 
           <View style={styles.spacer} />
 
-          <Pressable style={styles.actionBtn}>
-            <Feather name="bookmark" size={23} color={Colors.textSecondary} />
+          <Pressable style={styles.actionBtn} onPress={handleSave}>
+            <Animated.View style={bookmarkStyle}>
+              <Ionicons
+                name={localSaved ? "bookmark" : "bookmark-outline"}
+                size={23}
+                color={localSaved ? Colors.primary : Colors.textSecondary}
+              />
+            </Animated.View>
           </Pressable>
         </View>
 

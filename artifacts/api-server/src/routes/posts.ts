@@ -1,5 +1,6 @@
 import { Router, type IRouter } from "express";
 import { db, postsTable, postLikesTable } from "@workspace/db";
+import { savesTable, notificationsTable } from "@workspace/db";
 import { eq, desc, and } from "drizzle-orm";
 
 const router: IRouter = Router();
@@ -18,10 +19,17 @@ router.get("/posts", async (_req, res) => {
     .where(eq(postLikesTable.userId, DEFAULT_USER_ID));
   const likedPostIds = new Set(likes.map((l) => l.postId));
 
+  const saves = await db
+    .select()
+    .from(savesTable)
+    .where(eq(savesTable.userId, DEFAULT_USER_ID));
+  const savedPostIds = new Set(saves.map((s) => s.postId));
+
   const result = posts.map((p) => ({
     ...p,
     userAvatar: p.userAvatar ?? undefined,
     likedByMe: likedPostIds.has(p.id),
+    savedByMe: savedPostIds.has(p.id),
   }));
 
   res.json(result);
@@ -48,7 +56,7 @@ router.post("/posts", async (req, res) => {
       caption: caption ?? "",
     })
     .returning();
-  res.status(201).json({ ...post, likedByMe: false });
+  res.status(201).json({ ...post, likedByMe: false, savedByMe: false });
 });
 
 router.post("/posts/:id/like", async (req, res) => {
@@ -74,7 +82,7 @@ router.post("/posts/:id/like", async (req, res) => {
       .set({ likes: Math.max(0, current.likes - 1) })
       .where(eq(postsTable.id, id))
       .returning();
-    res.json({ ...upd, likedByMe: false });
+    res.json({ ...upd, likedByMe: false, savedByMe: false });
   } else {
     await db.insert(postLikesTable).values({ postId: id, userId: DEFAULT_USER_ID });
     const [upd] = await db
@@ -82,7 +90,24 @@ router.post("/posts/:id/like", async (req, res) => {
       .set({ likes: current.likes + 1 })
       .where(eq(postsTable.id, id))
       .returning();
-    res.json({ ...upd, likedByMe: true });
+
+    const notifId = Date.now().toString() + Math.random().toString(36).substr(2, 9);
+    await db
+      .insert(notificationsTable)
+      .values({
+        id: notifId,
+        userId: DEFAULT_USER_ID,
+        type: "like",
+        fromUser: current.userName,
+        fromUserAvatar: current.userAvatar ?? null,
+        postId: id,
+        postImageData: current.imageData,
+        message: `${current.userName} liked your ${current.style} portrait of ${current.petName}!`,
+        read: false,
+      })
+      .onConflictDoNothing();
+
+    res.json({ ...upd, likedByMe: true, savedByMe: false });
   }
 });
 

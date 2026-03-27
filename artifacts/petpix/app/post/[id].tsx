@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import {
   View,
   Text,
@@ -10,10 +10,14 @@ import {
   Dimensions,
   Platform,
   Share,
+  TextInput,
+  KeyboardAvoidingView,
+  FlatList,
 } from "react-native";
 import { useLocalSearchParams, router } from "expo-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { listPosts, likePost } from "@workspace/api-client-react";
+import { listPosts, likePost, toggleSave, listComments, addComment, deleteComment } from "@workspace/api-client-react";
+import type { AppComment } from "@workspace/api-client-react";
 import { Feather, Ionicons } from "@expo/vector-icons";
 import Animated, { useSharedValue, useAnimatedStyle, withSpring, withSequence } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
@@ -39,15 +43,35 @@ function getStyleEmoji(style: string): string {
   return STYLE_EMOJI[style.toLowerCase()] ?? "✨";
 }
 
+function formatTime(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h`;
+  return `${Math.floor(hrs / 24)}d`;
+}
+
+const DEFAULT_USER_NAME = "petlover";
+
 export default function PostDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const insets = useSafeAreaInsets();
   const qc = useQueryClient();
   const toast = useToast();
+  const inputRef = useRef<TextInput>(null);
+  const [commentText, setCommentText] = useState("");
 
   const { data: posts, isLoading } = useQuery({
     queryKey: ["posts"],
     queryFn: () => listPosts(),
+  });
+
+  const { data: comments = [], isLoading: commentsLoading } = useQuery({
+    queryKey: ["comments", id],
+    queryFn: () => listComments(id),
+    enabled: !!id,
   });
 
   const post = posts?.find((p) => p.id === id);
@@ -59,12 +83,41 @@ export default function PostDetailScreen() {
 
   const [localLiked, setLocalLiked] = useState<boolean | null>(null);
   const [localLikes, setLocalLikes] = useState<number | null>(null);
+  const [localSaved, setLocalSaved] = useState<boolean | null>(null);
   const heartScale = useSharedValue(1);
   const heartStyle = useAnimatedStyle(() => ({ transform: [{ scale: heartScale.value }] }));
 
   const likeMutation = useMutation({
     mutationFn: () => likePost(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["posts"] }),
+  });
+
+  const saveMutation = useMutation({
+    mutationFn: () => toggleSave(id),
+    onSuccess: (data) => {
+      setLocalSaved(data.saved);
+      qc.invalidateQueries({ queryKey: ["posts"] });
+      toast.show(data.saved ? "Saved to bookmarks" : "Removed from bookmarks", {
+        type: data.saved ? "success" : "info",
+      });
+    },
+  });
+
+  const addCommentMutation = useMutation({
+    mutationFn: (text: string) => addComment(id, text),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["comments", id] });
+      setCommentText("");
+    },
+    onError: () => {
+      toast.show("Couldn't add comment", { type: "error" });
+    },
+  });
+
+  const deleteCommentMutation = useMutation({
+    mutationFn: ({ postId, commentId }: { postId: string; commentId: string }) =>
+      deleteComment(postId, commentId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["comments", id] }),
   });
 
   const handleLike = () => {
@@ -79,6 +132,14 @@ export default function PostDetailScreen() {
     setLocalLiked(!liked);
     setLocalLikes(liked ? likes - 1 : likes + 1);
     likeMutation.mutate();
+  };
+
+  const handleSave = () => {
+    if (!post) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    const currentSaved = localSaved !== null ? localSaved : (post.savedByMe ?? false);
+    setLocalSaved(!currentSaved);
+    saveMutation.mutate();
   };
 
   const handleShare = async () => {
@@ -101,6 +162,14 @@ export default function PostDetailScreen() {
       type: "info",
       subtitle: "Select this style to create your own portrait",
     });
+  };
+
+  const handleSubmitComment = () => {
+    const text = commentText.trim();
+    if (!text) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    addCommentMutation.mutate(text);
+    inputRef.current?.blur();
   };
 
   const formatDate = (dateStr: string) => {
@@ -133,10 +202,15 @@ export default function PostDetailScreen() {
 
   const likedNow = localLiked !== null ? localLiked : post.likedByMe;
   const likesNow = localLikes !== null ? localLikes : post.likes;
+  const savedNow = localSaved !== null ? localSaved : (post.savedByMe ?? false);
   const styleEmoji = getStyleEmoji(post.style);
 
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}
+    >
       {/* Nav */}
       <View style={[styles.navBar, { paddingTop: Platform.OS === "web" ? 16 : insets.top + 8 }]}>
         <Pressable onPress={() => router.back()} style={styles.backBtn}>
@@ -148,7 +222,7 @@ export default function PostDetailScreen() {
         </Pressable>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         {/* Image */}
         <View style={styles.imageContainer}>
           <Image
@@ -161,7 +235,6 @@ export default function PostDetailScreen() {
             <Text style={styles.styleText}>{post.style}</Text>
           </View>
 
-          {/* Try this style button */}
           <Pressable style={styles.tryStyleBtn} onPress={handleTryStyle}>
             <Feather name="zap" size={13} color={Colors.primary} />
             <Text style={styles.tryStyleText}>Try this style</Text>
@@ -237,7 +310,7 @@ export default function PostDetailScreen() {
             <View style={styles.actionsSpacer} />
             <Pressable
               style={styles.actionBtn}
-              onPress={() => toast.show("Comments coming soon!", { type: "info", subtitle: "Stay tuned for this feature" })}
+              onPress={() => inputRef.current?.focus()}
             >
               <Feather name="message-circle" size={22} color={Colors.textSecondary} />
               <Text style={styles.actionBtnText}>Comment</Text>
@@ -246,10 +319,63 @@ export default function PostDetailScreen() {
               <Feather name="send" size={20} color={Colors.textSecondary} />
               <Text style={styles.actionBtnText}>Share</Text>
             </Pressable>
+            <Pressable style={styles.actionBtn} onPress={handleSave}>
+              <Ionicons
+                name={savedNow ? "bookmark" : "bookmark-outline"}
+                size={22}
+                color={savedNow ? Colors.primary : Colors.textSecondary}
+              />
+            </Pressable>
           </View>
         </View>
 
-        {/* More portraits of this pet */}
+        {/* Comments section */}
+        <View style={styles.commentsSection}>
+          <View style={styles.commentsSectionHeader}>
+            <Text style={styles.commentsSectionTitle}>Comments</Text>
+            {comments.length > 0 && (
+              <View style={styles.commentCountBadge}>
+                <Text style={styles.commentCountText}>{comments.length}</Text>
+              </View>
+            )}
+          </View>
+
+          {commentsLoading ? (
+            <View style={styles.commentsLoading}>
+              <ActivityIndicator size="small" color={Colors.primary} />
+            </View>
+          ) : comments.length === 0 ? (
+            <View style={styles.noComments}>
+              <Text style={styles.noCommentsText}>No comments yet</Text>
+              <Text style={styles.noCommentsSubtext}>Be the first to comment!</Text>
+            </View>
+          ) : (
+            comments.map((comment: AppComment) => (
+              <View key={comment.id} style={styles.commentItem}>
+                <View style={styles.commentAvatar}>
+                  <Text style={styles.commentAvatarLetter}>{comment.userName.charAt(0).toUpperCase()}</Text>
+                </View>
+                <View style={styles.commentContent}>
+                  <View style={styles.commentHeader}>
+                    <Text style={styles.commentUser}>{comment.userName}</Text>
+                    <Text style={styles.commentTime}>{formatTime(comment.createdAt)}</Text>
+                  </View>
+                  <Text style={styles.commentText}>{comment.text}</Text>
+                </View>
+                {comment.userId === "user-001" && (
+                  <Pressable
+                    onPress={() => deleteCommentMutation.mutate({ postId: id, commentId: comment.id })}
+                    style={styles.deleteCommentBtn}
+                  >
+                    <Feather name="trash-2" size={14} color={Colors.textTertiary} />
+                  </Pressable>
+                )}
+              </View>
+            ))
+          )}
+        </View>
+
+        {/* More portraits */}
         {morePosts.length > 0 && (
           <View style={styles.moreSection}>
             <Text style={styles.moreSectionTitle}>More portraits of {post.petName}</Text>
@@ -272,8 +398,40 @@ export default function PostDetailScreen() {
             </ScrollView>
           </View>
         )}
+
+        <View style={{ height: 120 }} />
       </ScrollView>
-    </View>
+
+      {/* Comment input */}
+      <View style={[styles.inputBar, { paddingBottom: Platform.OS === "ios" ? insets.bottom + 8 : 12 }]}>
+        <View style={styles.inputAvatar}>
+          <Text style={styles.inputAvatarLetter}>{DEFAULT_USER_NAME.charAt(0).toUpperCase()}</Text>
+        </View>
+        <TextInput
+          ref={inputRef}
+          style={styles.input}
+          placeholder="Add a comment…"
+          placeholderTextColor={Colors.textTertiary}
+          value={commentText}
+          onChangeText={setCommentText}
+          multiline
+          maxLength={300}
+          returnKeyType="send"
+          onSubmitEditing={handleSubmitComment}
+        />
+        <Pressable
+          onPress={handleSubmitComment}
+          style={[styles.sendBtn, { opacity: commentText.trim().length > 0 ? 1 : 0.4 }]}
+          disabled={commentText.trim().length === 0 || addCommentMutation.isPending}
+        >
+          {addCommentMutation.isPending ? (
+            <ActivityIndicator size="small" color={Colors.primary} />
+          ) : (
+            <Feather name="send" size={18} color={Colors.primary} />
+          )}
+        </Pressable>
+      </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -323,7 +481,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   scroll: {
-    paddingBottom: 80,
+    paddingBottom: 20,
   },
   imageContainer: {
     position: "relative",
@@ -534,7 +692,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 5,
-    paddingHorizontal: 10,
+    paddingHorizontal: 8,
     paddingVertical: 6,
   },
   actionBtnText: {
@@ -542,9 +700,112 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: Colors.textSecondary,
   },
+  commentsSection: {
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+    borderTopWidth: 0.5,
+    borderTopColor: Colors.borderLight,
+    paddingTop: 20,
+  },
+  commentsSectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 16,
+  },
+  commentsSectionTitle: {
+    fontFamily: "Inter_700Bold",
+    fontSize: 17,
+    color: Colors.text,
+    letterSpacing: -0.2,
+  },
+  commentCountBadge: {
+    backgroundColor: Colors.primaryLighter,
+    borderRadius: 10,
+    minWidth: 22,
+    height: 22,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 6,
+  },
+  commentCountText: {
+    fontFamily: "Inter_700Bold",
+    fontSize: 12,
+    color: Colors.primary,
+  },
+  commentsLoading: {
+    paddingVertical: 24,
+    alignItems: "center",
+  },
+  noComments: {
+    paddingVertical: 24,
+    alignItems: "center",
+    gap: 4,
+  },
+  noCommentsText: {
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 15,
+    color: Colors.textSecondary,
+  },
+  noCommentsSubtext: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 13,
+    color: Colors.textTertiary,
+  },
+  commentItem: {
+    flexDirection: "row",
+    gap: 10,
+    marginBottom: 14,
+    alignItems: "flex-start",
+  },
+  commentAvatar: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: Colors.primaryLighter,
+    justifyContent: "center",
+    alignItems: "center",
+    flexShrink: 0,
+  },
+  commentAvatarLetter: {
+    fontFamily: "Inter_700Bold",
+    fontSize: 14,
+    color: Colors.primary,
+  },
+  commentContent: {
+    flex: 1,
+    gap: 3,
+  },
+  commentHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  commentUser: {
+    fontFamily: "Inter_700Bold",
+    fontSize: 13,
+    color: Colors.text,
+  },
+  commentTime: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 11,
+    color: Colors.textTertiary,
+  },
+  commentText: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 14,
+    color: Colors.text,
+    lineHeight: 19,
+  },
+  deleteCommentBtn: {
+    padding: 6,
+    flexShrink: 0,
+  },
   moreSection: {
     paddingTop: 4,
     paddingBottom: 12,
+    borderTopWidth: 0.5,
+    borderTopColor: Colors.borderLight,
   },
   moreSectionTitle: {
     fontFamily: "Inter_700Bold",
@@ -553,6 +814,7 @@ const styles = StyleSheet.create({
     letterSpacing: -0.2,
     paddingHorizontal: 20,
     marginBottom: 14,
+    paddingTop: 16,
   },
   moreScroll: {
     paddingHorizontal: 20,
@@ -598,5 +860,51 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_600SemiBold",
     fontSize: 14,
     color: Colors.primary,
+  },
+  inputBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    backgroundColor: Colors.surface,
+    borderTopWidth: 0.5,
+    borderTopColor: Colors.borderLight,
+  },
+  inputAvatar: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: Colors.primaryLighter,
+    justifyContent: "center",
+    alignItems: "center",
+    flexShrink: 0,
+  },
+  inputAvatarLetter: {
+    fontFamily: "Inter_700Bold",
+    fontSize: 14,
+    color: Colors.primary,
+  },
+  input: {
+    flex: 1,
+    fontFamily: "Inter_400Regular",
+    fontSize: 14,
+    color: Colors.text,
+    backgroundColor: Colors.surfaceSecondary,
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    maxHeight: 90,
+    borderWidth: 1,
+    borderColor: Colors.borderLight,
+  },
+  sendBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: Colors.primaryLighter,
+    justifyContent: "center",
+    alignItems: "center",
+    flexShrink: 0,
   },
 });

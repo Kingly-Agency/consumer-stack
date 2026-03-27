@@ -5,6 +5,9 @@ import postsRouter from "./posts";
 import petsRouter from "./pets";
 import profileRouter from "./profile";
 import seedRouter from "./seed";
+import commentsRouter from "./comments";
+import savesRouter from "./saves";
+import notificationsRouter from "./notifications";
 
 const router: IRouter = Router();
 
@@ -14,5 +17,8 @@ router.use(postsRouter);
 router.use(petsRouter);
 router.use(profileRouter);
 router.use(seedRouter);
+router.use(commentsRouter);
+router.use(savesRouter);
+router.use(notificationsRouter);
 
 export default router;

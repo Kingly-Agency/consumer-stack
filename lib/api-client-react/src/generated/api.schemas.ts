@@ -39,6 +39,7 @@ export interface Post {
   caption: string;
   likes: number;
   likedByMe: boolean;
+  savedByMe?: boolean;
   createdAt: string;
 }
 

@@ -310,6 +310,7 @@ export default function CommunityScreen() {
               userAvatar={item.userAvatar ?? undefined}
               onLike={handleLike}
               onPress={() => router.push(`/post/${item.id}`)}
+              onCommentPress={() => router.push(`/post/${item.id}`)}
             />
           )}
           refreshControl={
